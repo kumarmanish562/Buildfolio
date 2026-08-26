@@ -3,6 +3,7 @@ package com.buildfolio.backend.config;
 import com.buildfolio.backend.security.GithubOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,51 +32,46 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
+            @Qualifier("oauth2SuccessHandler")
             AuthenticationSuccessHandler oauth2SuccessHandler,
+            @Qualifier("oauth2FailureHandler")
             AuthenticationFailureHandler oauth2FailureHandler
     ) throws Exception {
 
         http
-                // CORS
                 .cors(Customizer.withDefaults())
 
-                // Disable CSRF for API usage
                 .csrf(csrf -> csrf.disable())
 
-                // OAuth2 uses a session during authentication
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.IF_REQUIRED
                         )
                 )
 
-                // Authorization rules
                 .authorizeHttpRequests(auth -> auth
 
-                        // Public authentication endpoints
                         .requestMatchers(
                                 "/api/auth/login-url",
                                 "/oauth2/**",
                                 "/login/oauth2/**",
                                 "/error"
-                        ).permitAll()
+                        )
+                        .permitAll()
 
-                        // CORS preflight
                         .requestMatchers(
                                 HttpMethod.OPTIONS,
                                 "/**"
-                        ).permitAll()
+                        )
+                        .permitAll()
 
-                        // API endpoints require authentication
                         .requestMatchers("/api/**")
                         .authenticated()
 
-                        // Everything else is public
                         .anyRequest()
                         .permitAll()
                 )
 
-                // Return 401 instead of redirecting API requests
                 .exceptionHandling(ex ->
                         ex.authenticationEntryPoint(
                                 new HttpStatusEntryPoint(
@@ -84,45 +80,36 @@ public class SecurityConfig {
                         )
                 )
 
-                // GitHub OAuth2
-                .oauth2Login(oauth -> oauth
-
-                        .userInfoEndpoint(userInfo ->
-                                userInfo.userService(
-                                        githubOAuth2UserService
+                .oauth2Login(oauth ->
+                        oauth
+                                .userInfoEndpoint(userInfo ->
+                                        userInfo.userService(
+                                                githubOAuth2UserService
+                                        )
                                 )
-                        )
-
-                        .successHandler(oauth2SuccessHandler)
-
-                        .failureHandler(oauth2FailureHandler)
+                                .successHandler(oauth2SuccessHandler)
+                                .failureHandler(oauth2FailureHandler)
                 )
 
-                // Logout
-                .logout(logout -> logout
-                        .logoutUrl("/api/auth/logout")
+                .logout(logout ->
+                        logout
+                                .logoutUrl("/api/auth/logout")
 
-                        .logoutSuccessHandler(
-                                (request, response, authentication) ->
-                                        response.setStatus(
-                                                HttpStatus.NO_CONTENT.value()
-                                        )
-                        )
+                                .logoutSuccessHandler(
+                                        (request, response, authentication) ->
+                                                response.setStatus(
+                                                        HttpStatus.NO_CONTENT.value()
+                                                )
+                                )
 
-                        .invalidateHttpSession(true)
-
-                        .clearAuthentication(true)
-
-                        .deleteCookies("BUILDFOLIO_SESSION")
+                                .invalidateHttpSession(true)
+                                .clearAuthentication(true)
+                                .deleteCookies("BUILDFOLIO_SESSION")
                 );
 
         return http.build();
     }
 
-
-    /**
-     * Called after successful GitHub OAuth login.
-     */
     @Bean
     AuthenticationSuccessHandler oauth2SuccessHandler(
             @Value("${app.frontend-url}") String frontendUrl
@@ -138,10 +125,6 @@ public class SecurityConfig {
         return handler;
     }
 
-
-    /**
-     * Called when GitHub OAuth login fails.
-     */
     @Bean
     AuthenticationFailureHandler oauth2FailureHandler(
             @Value("${app.frontend-url}") String frontendUrl

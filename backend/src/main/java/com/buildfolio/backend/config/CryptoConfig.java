@@ -10,9 +10,10 @@ import org.springframework.security.crypto.encrypt.TextEncryptor;
 public class CryptoConfig {
 
     @Bean
-    TextEncryptor tokenEncryptor(
+    public TextEncryptor tokenEncryptor(
             @Value("${app.token-encryptor-password}") String password,
             @Value("${app.token-encryptor-salt}") String salt) {
+
         return Encryptors.text(password, salt);
     }
 }
