@@ -7,11 +7,15 @@ import java.util.UUID;
 
 public record CreateChatSessionRequest(
 
-        @NotNull
+        @NotNull(
+                message = "Repository ID is required"
+        )
         UUID repositoryId,
 
-        @Size(max = 200)
+        @Size(
+                max = 200,
+                message = "Title cannot exceed 200 characters"
+        )
         String title
-
 ) {
 }

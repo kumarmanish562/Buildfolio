@@ -7,6 +7,7 @@ import com.buildfolio.backend.entity.User;
 import com.buildfolio.backend.exceptions.NotFoundException;
 import com.buildfolio.backend.repository.RepositoryRepository;
 import com.buildfolio.backend.services.github.GithubApiClient;
+import com.buildfolio.backend.services.indexing.IndexingService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,79 +26,77 @@ public class RepoService {
     private final RepositoryRepository repositoryRepository;
     private final UserService userService;
     private final GithubApiClient gitHubApiClient;
-
+    private final IndexingService indexingService;
 
     @Transactional
     public List<RepositoryResponse> syncAndListRepos(UUID userId) {
 
-        // 1. Find Buildfolio user
         User user = userService.requiredById(userId);
 
-        // 2. Decrypt GitHub access token
-        String token = userService.decryptAccessToken(user);
+        String token =
+                userService.decryptAccessToken(user);
 
-        // 3. Get repositories from GitHub
         List<Map<String, Object>> remoteRepos =
                 gitHubApiClient.listUserRepos(token);
 
         List<Repository> saved = new ArrayList<>();
 
-        // 4. Process every GitHub repository
         for (Map<String, Object> remote : remoteRepos) {
 
-            Long githubRepoId = toLong(remote.get("id"));
+            Long githubRepoId =
+                    toLong(remote.get("id"));
 
-            // 5. Check whether repository already exists
-            Repository repo = repositoryRepository
-                    .findByUserIdAndGithubRepoId(
-                            userId,
-                            githubRepoId
-                    )
-                    .orElseGet(Repository::new);
+            Repository repo =
+                    repositoryRepository
+                            .findByUserIdAndGithubRepoId(
+                                    userId,
+                                    githubRepoId
+                            )
+                            .orElseGet(Repository::new);
 
-            // 6. Extract repository name
             String fullName =
                     String.valueOf(remote.get("full_name"));
 
-            String[] parts = fullName.split("/", 2);
+            String[] parts =
+                    fullName.split("/", 2);
 
             String owner =
                     parts.length > 0
                             ? parts[0]
-                            : null;
+                            : "";
 
             String name =
                     parts.length > 1
                             ? parts[1]
-                            : String.valueOf(remote.get("name"));
+                            : String.valueOf(
+                            remote.get("name")
+                    );
 
-            // 7. If owner wasn't available from full_name,
-            //    try GitHub's owner object
-            if (owner == null || owner.isBlank()) {
+            if (owner.isBlank()) {
 
-                Object ownerObj = remote.get("owner");
+                Object ownerObj =
+                        remote.get("owner");
 
                 if (ownerObj instanceof Map<?, ?> ownerMap
                         && ownerMap.get("login") != null) {
 
                     owner =
-                            String.valueOf(ownerMap.get("login"));
+                            String.valueOf(
+                                    ownerMap.get("login")
+                            );
                 }
             }
 
-            // 8. Update repository information
             repo.setUserId(userId);
-
             repo.setGithubRepoId(githubRepoId);
-
             repo.setOwner(owner);
-
             repo.setName(name);
-
             repo.setFullName(fullName);
 
             repo.setPrivate(
-                    Boolean.TRUE.equals(remote.get("private"))
+                    Boolean.TRUE.equals(
+                            remote.get("private")
+                    )
             );
 
             repo.setDefaultBranch(
@@ -132,13 +131,11 @@ public class RepoService {
                             : null
             );
 
-            // 9. Save repository
             saved.add(
                     repositoryRepository.save(repo)
             );
         }
 
-        // 10. Return sorted repositories
         return saved.stream()
                 .sorted(
                         (a, b) ->
@@ -151,9 +148,10 @@ public class RepoService {
                 .toList();
     }
 
-
     @Transactional(readOnly = true)
-    public List<RepositoryResponse> listStored(UUID userId) {
+    public List<RepositoryResponse> listStored(
+            UUID userId
+    ) {
 
         return repositoryRepository
                 .findByUserIdOrderByFullNameAsc(userId)
@@ -161,7 +159,6 @@ public class RepoService {
                 .map(this::toResponse)
                 .toList();
     }
-
 
     @Transactional(readOnly = true)
     public Repository requireOwned(
@@ -177,7 +174,6 @@ public class RepoService {
                         )
                 );
     }
-
 
     @Transactional(readOnly = true)
     public IndexStatusResponse status(
@@ -199,6 +195,24 @@ public class RepoService {
         );
     }
 
+    /**
+     * Delete repository and all its vector embeddings.
+     */
+    @Transactional
+    public void deleteRepository(
+            UUID repoId,
+            UUID userId
+    ) {
+
+        Repository repo =
+                requireOwned(repoId, userId);
+
+        indexingService.deleteVectors(
+                repo.getId().toString()
+        );
+
+        repositoryRepository.delete(repo);
+    }
 
     public RepositoryResponse toResponse(
             Repository repo
@@ -223,7 +237,6 @@ public class RepoService {
                 repo.getErrorMessage()
         );
     }
-
 
     private static Long toLong(Object value) {
 

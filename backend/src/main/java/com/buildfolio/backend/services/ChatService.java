@@ -85,6 +85,25 @@ public class ChatService {
                 .orElseThrow(() -> new NotFoundException("Chat session not found"));
     }
 
+    @Transactional
+    public void deleteSession(
+            UUID userId,
+            UUID sessionId
+    ) {
+
+        ChatSession session =
+                requireSession(
+                        userId,
+                        sessionId
+                );
+
+        chatMessageRepository.deleteBySessionId(
+                session.getId()
+        );
+
+        chatSessionRepository.delete(session);
+    }
+
     public SseEmitter streamReply(UUID userId, UUID sessionId, String userContent) {
         // 1. Ensure the session exists and the repo is indexed
         ChatSession session = requireSession(userId, sessionId);

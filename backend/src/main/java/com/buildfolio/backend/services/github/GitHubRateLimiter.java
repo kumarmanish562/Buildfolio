@@ -8,19 +8,31 @@ public class GitHubRateLimiter {
 
     private final long delayMs;
 
-    public GitHubRateLimiter(@Value("${app.github.api-delay-ms:50}") long delayMs) {
+    public GitHubRateLimiter(
+            @Value("${app.github.api-delay-ms:100}")
+            long delayMs
+    ) {
         this.delayMs = Math.max(0, delayMs);
     }
 
     public void pause() {
+
         if (delayMs <= 0) {
             return;
         }
+
         try {
+
             Thread.sleep(delayMs);
+
         } catch (InterruptedException e) {
+
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while rate limiting", e);
+
+            throw new IllegalStateException(
+                    "Interrupted while rate limiting",
+                    e
+            );
         }
     }
 }

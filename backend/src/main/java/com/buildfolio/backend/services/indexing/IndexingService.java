@@ -79,7 +79,8 @@ public class IndexingService {
                 .orElseThrow(() -> new NotFoundException("Repository not found"));
         String token = userService.decryptAccessToken(userService.requiredById(userId));
 
-        deleteExistingVectors(repoId.toString());
+        deleteVectors(repoId.toString());
+
 
         Map<String, Object> tree = gitHubApiClient.getRepoTree(
                 token, repo.getOwner(), repo.getName(), repo.getDefaultBranch());
@@ -139,14 +140,39 @@ public class IndexingService {
                 .toList();
     }
 
-    private void deleteExistingVectors(String repoId) {
+    public void deleteVectors(String repoId) {
+
         try {
-            var filter = new FilterExpressionBuilder().eq(RagSettings.METADATA_REPO_ID, repoId).build();
+
+            var filter =
+                    new FilterExpressionBuilder()
+                            .eq(
+                                    RagSettings.METADATA_REPO_ID,
+                                    repoId
+                            )
+                            .build();
+
             vectorStore.delete(filter);
+
+            log.info(
+                    "Deleted vectors for repository {}",
+                    repoId
+            );
+
         } catch (Exception ex) {
-            log.warn("Could not delete existing vectors for repo {}: {}", repoId, ex.getMessage());
+
+            log.error(
+                    "Failed to delete vectors for repository {}",
+                    repoId,
+                    ex
+            );
+
+            throw new IllegalStateException(
+                    "Could not delete repository vectors",
+                    ex
+            );
         }
-    };
+    }
 
     @Transactional
     protected void updateProgress(
@@ -193,4 +219,6 @@ public class IndexingService {
             repositoryRepository.save(repo);
         });
     }
+
+
 }
