@@ -1,10 +1,17 @@
 package com.buildfolio.backend.dto;
 
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.util.UUID;
 
-import jakarta.validation.constraints.NotNull;
-
 public record CreateChatSessionRequest(
-        @NotNull UUID repositoryId,
-        String title) {
+
+        @NotNull
+        UUID repositoryId,
+
+        @Size(max = 200)
+        String title
+
+) {
 }
