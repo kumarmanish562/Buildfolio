@@ -1,4 +1,8 @@
-export type IndexStatus = "PENDING" | "INDEXING" | "READY" | "FAILED";
+export type IndexStatus =
+  | "PENDING"
+  | "INDEXING"
+  | "READY"
+  | "FAILED";
 
 export type User = {
   id: string;
@@ -59,51 +63,89 @@ export type ChatMessage = {
   createdAt: string;
 };
 
+export type HealthResponse = {
+  status: string;
+  timestamp?: string;
+};
 
 export class ApiError extends Error {
   status: number;
 
   constructor(status: number, message: string) {
     super(message);
+    this.name = "ApiError";
     this.status = status;
   }
 }
 
 export function getApiBaseUrl() {
-  return process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+  return (
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "http://localhost:8080"
+  );
 }
 
 export function getGithubLoginUrl() {
   return `${getApiBaseUrl()}/oauth2/authorization/github`;
 }
 
-async function parseError(res: Response): Promise<string> {
+async function parseError(
+  res: Response
+): Promise<string> {
   try {
     const data = await res.json();
-    return data.message ?? data.error ?? res.statusText;
+
+    return (
+      data.message ??
+      data.error ??
+      data.detail ??
+      res.statusText ??
+      "Request failed"
+    );
   } catch {
-    return res.statusText || "Request failed";
+    return (
+      res.statusText ||
+      "Request failed"
+    );
   }
 }
 
 export async function apiFetch<T>(
   path: string,
-  init?: RequestInit,
+  init?: RequestInit
 ): Promise<T> {
-  const res = await fetch(`${getApiBaseUrl()}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  const res = await fetch(
+    `${getApiBaseUrl()}${path}`,
+    {
+      ...init,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      cache: "no-store",
+    }
+  );
 
   if (!res.ok) {
-    throw new ApiError(res.status, await parseError(res));
+    throw new ApiError(
+      res.status,
+      await parseError(res)
+    );
   }
 
   if (res.status === 204) {
+    return undefined as T;
+  }
+
+  const contentType =
+    res.headers.get("content-type");
+
+  if (
+    !contentType?.includes(
+      "application/json"
+    )
+  ) {
     return undefined as T;
   }
 
@@ -111,28 +153,109 @@ export async function apiFetch<T>(
 }
 
 export const api = {
-  me: () => apiFetch<User>("/api/auth/me"),
-  logout: () =>
-    apiFetch<void>("/api/auth/logout", {
-      method: "POST",
-    }),
+  /* ================= AUTH ================= */
 
-  listRepos: (refresh = true) =>
-    apiFetch<Repository[]>(`/api/repos?refresh=${refresh}`),
-  getRepo: (id: string) => apiFetch<Repository>(`/api/repos/${id}`),
-  startIndex: (id: string) =>
-    apiFetch<Repository>(`/api/repos/${id}/index`, { method: "POST" }),
-  indexStatus: (id: string) =>
-    apiFetch<IndexStatusResponse>(`/api/repos/${id}/status`),
-   createSession: (repositoryId: string, title?: string) =>
-    apiFetch<ChatSession>("/api/chat/sessions", {
-      method: "POST",
-      body: JSON.stringify({ repositoryId, title }),
-    }),
-  listSessions: (repositoryId: string) =>
-    apiFetch<ChatSession[]>(
-      `/api/chat/sessions?repositoryId=${encodeURIComponent(repositoryId)}`
+  me: () =>
+    apiFetch<User>("/api/auth/me"),
+
+  logout: () =>
+    apiFetch<void>(
+      "/api/auth/logout",
+      {
+        method: "POST",
+      }
     ),
-  getMessages: (sessionId: string) =>
-    apiFetch<ChatMessage[]>(`/api/chat/sessions/${sessionId}`),
+
+  /* ================= REPOSITORIES ================= */
+
+  listRepos: (
+    refresh = true
+  ) =>
+    apiFetch<Repository[]>(
+      `/api/repos?refresh=${refresh}`
+    ),
+
+  getRepo: (
+    id: string
+  ) =>
+    apiFetch<Repository>(
+      `/api/repos/${id}`
+    ),
+
+  startIndex: (
+    id: string
+  ) =>
+    apiFetch<Repository>(
+      `/api/repos/${id}/index`,
+      {
+        method: "POST",
+      }
+    ),
+
+  indexStatus: (
+    id: string
+  ) =>
+    apiFetch<IndexStatusResponse>(
+      `/api/repos/${id}/status`
+    ),
+
+  deleteRepo: (
+    id: string
+  ) =>
+    apiFetch<void>(
+      `/api/repos/${id}`,
+      {
+        method: "DELETE",
+      }
+    ),
+
+  /* ================= CHAT ================= */
+
+  createSession: (
+    repositoryId: string,
+    title?: string
+  ) =>
+    apiFetch<ChatSession>(
+      "/api/chat/sessions",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          repositoryId,
+          title,
+        }),
+      }
+    ),
+
+  listSessions: (
+    repositoryId: string
+  ) =>
+    apiFetch<ChatSession[]>(
+      `/api/chat/sessions?repositoryId=${encodeURIComponent(
+        repositoryId
+      )}`
+    ),
+
+  getMessages: (
+    sessionId: string
+  ) =>
+    apiFetch<ChatMessage[]>(
+      `/api/chat/sessions/${sessionId}`
+    ),
+
+  deleteSession: (
+    sessionId: string
+  ) =>
+    apiFetch<void>(
+      `/api/chat/sessions/${sessionId}`,
+      {
+        method: "DELETE",
+      }
+    ),
+
+  /* ================= HEALTH ================= */
+
+  health: () =>
+    apiFetch<HealthResponse>(
+      "/actuator/health"
+    ),
 };

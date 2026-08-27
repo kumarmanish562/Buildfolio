@@ -34,6 +34,7 @@ export const dashboardNavGroups: DashboardNavGroup[] = [
       },
     ],
   },
+
   {
     label: "Account",
     items: [
@@ -55,5 +56,8 @@ export function isDashboardNavActive(
     return pathname === href;
   }
 
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return (
+    pathname === href ||
+    pathname.startsWith(`${href}/`)
+  );
 }

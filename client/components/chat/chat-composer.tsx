@@ -1,12 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import { SendHorizontal, Square } from "lucide-react";
+import {
+  ArrowUp,
+  Square,
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Kbd } from "@/components/ui/kbd";
-import { Spinner } from "@/components/ui/spinner";
+import { useState } from "react";
+
+import {
+  Button,
+} from "@/components/ui/button";
+
+import {
+  Textarea,
+} from "@/components/ui/textarea";
+
+import {
+  Kbd,
+} from "@/components/ui/kbd";
+
+import {
+  Spinner,
+} from "@/components/ui/spinner";
 
 export function ChatComposer({
   disabled,
@@ -16,59 +31,110 @@ export function ChatComposer({
 }: {
   disabled?: boolean;
   streaming?: boolean;
-  onSend: (content: string) => void | Promise<void>;
+  onSend: (
+    content: string
+  ) => void | Promise<void>;
   onStop?: () => void;
 }) {
-  const [value, setValue] = useState("");
+  const [
+    value,
+    setValue,
+  ] = useState("");
 
   async function submit() {
-    const content = value.trim();
-    if (!content || disabled || streaming) return;
+    const content =
+      value.trim();
+
+    if (
+      !content ||
+      disabled ||
+      streaming
+    ) {
+      return;
+    }
+
     setValue("");
+
     await onSend(content);
   }
 
   return (
-    <div className="border-t bg-background/80 p-4 backdrop-blur">
-      <div className="mx-auto max-w-3xl space-y-2">
-        <div className="flex items-end gap-2 rounded-2xl border bg-card p-2 shadow-xs">
+    <div className="border-t bg-background/80 px-3 py-3 backdrop-blur-xl sm:px-4">
+      <div className="mx-auto w-full max-w-4xl">
+
+        <div className="relative rounded-2xl border bg-card shadow-lg shadow-foreground-[0.04] transition-all focus-within:border-foreground/20 focus-within:shadow-xl">
+
           <Textarea
             value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="Ask about architecture, files, flows…"
+            onChange={(event) =>
+              setValue(
+                event.target.value
+              )
+            }
             disabled={disabled}
-            className="min-h-12 flex-1 border-0 bg-transparent px-3 py-2 shadow-none focus-visible:ring-0"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
+            placeholder="Ask anything about this codebase..."
+            className="min-h-18 resize-none border-0 bg-transparent px-4 py-4 pr-14 text-sm shadow-none focus-visible:ring-0"
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey
+              ) {
+                event.preventDefault();
                 void submit();
               }
             }}
           />
-          {streaming ? (
-            <Button
-              size="icon-lg"
-              variant="secondary"
-              onClick={onStop}
-              aria-label="Stop generating"
-            >
-              <Square className="size-4" />
-            </Button>
-          ) : (
-            <Button
-              size="icon-lg"
-              disabled={disabled || !value.trim()}
-              onClick={() => void submit()}
-              aria-label="Send message"
-            >
-              {disabled ? <Spinner /> : <SendHorizontal />}
-            </Button>
-          )}
+
+          <div className="absolute right-3 bottom-3">
+
+            {streaming ? (
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={onStop}
+                className="rounded-xl"
+                aria-label="Stop generating"
+              >
+                <Square className="size-4" />
+              </Button>
+            ) : (
+              <Button
+                size="icon"
+                disabled={
+                  disabled ||
+                  !value.trim()
+                }
+                onClick={() =>
+                  void submit()
+                }
+                className="rounded-xl"
+                aria-label="Send message"
+              >
+                {disabled ? (
+                  <Spinner />
+                ) : (
+                  <ArrowUp className="size-4" />
+                )}
+              </Button>
+            )}
+
+          </div>
         </div>
-        <p className="px-1 text-xs text-muted-foreground">
-          Press <Kbd>Enter</Kbd> to send · <Kbd>Shift</Kbd> + <Kbd>Enter</Kbd>{" "}
-          for a new line
-        </p>
+
+        <div className="flex items-center justify-between px-2 pt-2">
+          <p className="text-[11px] text-muted-foreground">
+            BuildFolio AI can make mistakes.
+            Verify important code changes.
+          </p>
+
+          <p className="hidden text-[11px] text-muted-foreground sm:block">
+            <Kbd>Enter</Kbd>
+            {" "}send ·{" "}
+            <Kbd>Shift</Kbd>
+            {" "}new line
+          </p>
+        </div>
+
       </div>
     </div>
   );

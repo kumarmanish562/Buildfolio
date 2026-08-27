@@ -1,13 +1,19 @@
 "use client";
 
 import {
+  api,
+  type ChatMessage,
+  type ChatSession,
+} from "@/lib/api";
+
+import {
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 
-import { api, type ChatMessage } from "@/lib/api";
+
 import { queryKeys } from "@/lib/query-keys";
 import { streamChatMessage } from "@/lib/stream-chat";
 import { toast } from "@/components/ui/toast";
@@ -104,28 +110,116 @@ export function useStreamChat(sessionId: string | null) {
           },
         });
       } catch (err) {
-        if ((err as Error).name === "AbortError") return;
-        toast.add({
-          title: "Message failed",
-          description: err instanceof Error ? err.message : "Unknown error",
-          type: "error",
-        });
-        queryClient.setQueryData<ChatMessage[]>(
-          queryKeys.chat.messages(sessionId),
-          (prev) => (prev ?? []).filter((m) => m.id !== optimisticId)
-        );
-        setStreamText("");
-      } finally {
-        setStreaming(false);
-      }
+  if (
+    (err as Error).name ===
+    "AbortError"
+  ) {
+    setStreamText("");
+    return;
+  }
+
+  toast.add({
+    title: "Message failed",
+    description:
+      err instanceof Error
+        ? err.message
+        : "Unknown error",
+    type: "error",
+  });
+
+  queryClient.setQueryData<
+    ChatMessage[]
+  >(
+    queryKeys.chat.messages(
+      sessionId
+    ),
+    (prev) =>
+      (prev ?? []).filter(
+        (message) =>
+          message.id !==
+          optimisticId
+      )
+  );
+
+  setStreamText("");
+}finally {
+  if (abortRef.current === controller) {
+    abortRef.current = null;
+  }
+
+  setStreaming(false);
+}
     },
     [sessionId, streaming, queryClient]
   );
 
   const stop = useCallback(() => {
-    abortRef.current?.abort();
-    setStreaming(false);
-  }, []);
+  abortRef.current?.abort();
+  abortRef.current = null;
+  setStreaming(false);
+}, []);
 
   return { send, stop, streaming, streamText };
+}
+
+export function useDeleteChatSession(
+  repositoryId: string
+) {
+  const queryClient =
+    useQueryClient();
+
+  return useMutation({
+    mutationFn: (
+      sessionId: string
+    ) =>
+      api.deleteSession(
+        sessionId
+      ),
+
+    onSuccess: (
+      _,
+      sessionId
+    ) => {
+      queryClient.setQueryData<
+        ChatSession[]
+      >(
+        queryKeys.chat.sessions(
+          repositoryId
+        ),
+        (sessions) =>
+          sessions?.filter(
+            (session) =>
+              session.id !==
+              sessionId
+          )
+      );
+
+      queryClient.removeQueries({
+        queryKey:
+          queryKeys.chat.messages(
+            sessionId
+          ),
+      });
+
+      toast.add({
+        title:
+          "Chat deleted",
+        description:
+          "The conversation has been removed.",
+        type: "success",
+      });
+    },
+
+    onError: (
+      error: Error
+    ) => {
+      toast.add({
+        title:
+          "Could not delete chat",
+        description:
+          error.message,
+        type: "error",
+      });
+    },
+  });
 }

@@ -1,0 +1,38 @@
+.landing-grid {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
+      transparent 1px
+    );
+
+  background-size: 48px 48px;
+
+  /* Safari / older Chrome / WebKit compatibility */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black 0%,
+    black 45%,
+    transparent 100%
+  );
+
+  /* Standard CSS */
+  mask-image: linear-gradient(
+    to bottom,
+    black 0%,
+    black 45%,
+    transparent 100%
+  );
+
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+html {
+  scroll-behavior: smooth;
+}

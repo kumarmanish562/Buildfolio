@@ -9,7 +9,7 @@ export default function OverviewPage() {
     <RequireAuth>
       <AppShell
         title="Overview"
-        description="Workspace stats and recent repository activity"
+        description="Workspace stats and repository activity"
       >
         <OverviewDashboard />
       </AppShell>

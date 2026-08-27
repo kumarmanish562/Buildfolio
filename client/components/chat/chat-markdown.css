@@ -1,11 +1,17 @@
+.chat-markdown {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .chat-markdown [data-streamdown="heading-1"],
 .chat-markdown [data-streamdown="heading-2"],
 .chat-markdown [data-streamdown="heading-3"],
 .chat-markdown [data-streamdown="heading-4"] {
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.6rem;
+  font-weight: 650;
   line-height: 1.35;
+  letter-spacing: -0.01em;
 }
 
 .chat-markdown [data-streamdown="heading-1"] {
@@ -29,7 +35,8 @@
 }
 
 .chat-markdown p {
-  margin: 0.5rem 0;
+  margin: 0.65rem 0;
+  line-height: 1.7;
 }
 
 .chat-markdown p:first-child {
@@ -42,43 +49,93 @@
 
 .chat-markdown [data-streamdown="unordered-list"],
 .chat-markdown [data-streamdown="ordered-list"] {
-  margin: 0.5rem 0;
-  padding-left: 1.25rem;
+  margin: 0.7rem 0;
+  padding-left: 1.35rem;
 }
 
 .chat-markdown [data-streamdown="list-item"] {
-  margin: 0.25rem 0;
+  margin: 0.35rem 0;
+  line-height: 1.65;
 }
 
 .chat-markdown [data-streamdown="list-item"]::marker {
-  color: color-mix(in oklch, var(--foreground) 70%, transparent);
+  color: color-mix(
+    in oklch,
+    var(--foreground) 55%,
+    transparent
+  );
 }
 
 .chat-markdown [data-streamdown="inline-code"] {
-  border-radius: 0.25rem;
-  background: color-mix(in oklch, var(--foreground) 8%, transparent);
-  padding: 0.125rem 0.375rem;
+  border: 1px solid color-mix(
+    in oklch,
+    var(--foreground) 10%,
+    transparent
+  );
+
+  border-radius: 0.4rem;
+
+  background: color-mix(
+    in oklch,
+    var(--foreground) 7%,
+    transparent
+  );
+
+  padding: 0.15rem 0.4rem;
+
   font-family: var(--font-mono);
+
   font-size: 0.875em;
 }
 
 .chat-markdown [data-streamdown="code-block"] {
-  margin: 0.75rem 0;
+  margin: 1rem 0;
+  overflow: hidden;
+  border-radius: 0.85rem;
 }
 
 .chat-markdown [data-streamdown="link"] {
   color: var(--primary);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
 }
 
 .chat-markdown [data-streamdown="blockquote"] {
-  margin: 0.75rem 0;
-  border-left: 3px solid var(--border);
-  padding-left: 0.875rem;
+  margin: 1rem 0;
+
+  border-left: 3px solid var(--primary);
+
+  padding-left: 1rem;
+
   color: var(--muted-foreground);
 }
 
 .chat-markdown [data-streamdown="strong"] {
+  font-weight: 650;
+}
+
+.chat-markdown hr {
+  margin: 1.25rem 0;
+  border-color: var(--border);
+}
+
+.chat-markdown table {
+  width: 100%;
+  margin: 1rem 0;
+  overflow: hidden;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.chat-markdown th,
+.chat-markdown td {
+  border: 1px solid var(--border);
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+}
+
+.chat-markdown th {
+  background: var(--muted);
   font-weight: 600;
 }

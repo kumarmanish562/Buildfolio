@@ -8,9 +8,8 @@ export default function DashboardPage() {
   return (
     <RequireAuth>
       <AppShell hideHeader>
-        <RepoDashboard/>
+        <RepoDashboard />
       </AppShell>
     </RequireAuth>
   );
 }
-    

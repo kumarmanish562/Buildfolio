@@ -1,14 +1,24 @@
 "use client";
 
-import { code } from "@streamdown/code";
-import { Streamdown } from "streamdown";
+import {
+  code,
+} from "@streamdown/code";
 
-import { cn } from "@/lib/utils";
+import {
+  Streamdown,
+} from "streamdown";
+
+import {
+  cn,
+} from "@/lib/utils";
 
 import "./chat-markdown.css";
+
 import "streamdown/styles.css";
 
-const streamdownPlugins = { code };
+const streamdownPlugins = {
+  code,
+};
 
 export function ChatMarkdown({
   content,
@@ -21,11 +31,25 @@ export function ChatMarkdown({
 }) {
   return (
     <Streamdown
-      className={cn("chat-markdown max-w-none text-sm leading-relaxed", className)}
-      mode={isStreaming ? "streaming" : "static"}
-      plugins={streamdownPlugins}
-      shikiTheme={["github-light", "github-dark"]}
-      isAnimating={isStreaming}
+      className={cn(
+        "chat-markdown max-w-none text-sm",
+        className
+      )}
+      mode={
+        isStreaming
+          ? "streaming"
+          : "static"
+      }
+      plugins={
+        streamdownPlugins
+      }
+      shikiTheme={[
+        "github-light",
+        "github-dark",
+      ]}
+      isAnimating={
+        isStreaming
+      }
     >
       {content}
     </Streamdown>

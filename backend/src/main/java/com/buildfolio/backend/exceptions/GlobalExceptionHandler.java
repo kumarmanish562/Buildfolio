@@ -2,6 +2,7 @@ package com.buildfolio.backend.exceptions;
 
 import com.buildfolio.backend.services.github.GithubApiException;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -14,126 +15,68 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(NotFoundException.class)
-    ResponseEntity<Map<String, Object>> handleNotFound(
-            NotFoundException ex
+    @ExceptionHandler(
+            RepositoryNotFoundException.class
+    )
+    public ResponseEntity<ApiErrorResponse> handleRepositoryNotFound(
+            RepositoryNotFoundException ex,
+            HttpServletRequest request
     ) {
 
-        return error(
+        return build(
                 HttpStatus.NOT_FOUND,
-                ex.getMessage()
-        );
-    }
-
-    @ExceptionHandler(BadRequestException.class)
-    ResponseEntity<Map<String, Object>> handleBadRequest(
-            BadRequestException ex
-    ) {
-
-        return error(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage()
-        );
-    }
-
-    @ExceptionHandler(UnauthorizedException.class)
-    ResponseEntity<Map<String, Object>> handleUnauthorized(
-            UnauthorizedException ex
-    ) {
-
-        return error(
-                HttpStatus.UNAUTHORIZED,
-                ex.getMessage()
-        );
-    }
-
-    @ExceptionHandler(GithubApiException.class)
-    ResponseEntity<Map<String, Object>> handleGithub(
-            GithubApiException ex
-    ) {
-
-        HttpStatus status;
-
-        switch (ex.getStatusCode()) {
-
-            case 401 ->
-                    status = HttpStatus.UNAUTHORIZED;
-
-            case 403 ->
-                    status = HttpStatus.FORBIDDEN;
-
-            case 404 ->
-                    status = HttpStatus.NOT_FOUND;
-
-            default ->
-                    status = HttpStatus.BAD_GATEWAY;
-        }
-
-        return error(
-                status,
-                ex.getMessage()
+                ex.getMessage(),
+                request
         );
     }
 
     @ExceptionHandler(
-            MethodArgumentNotValidException.class
+            IllegalArgumentException.class
     )
-    ResponseEntity<Map<String, Object>> handleValidation(
-            MethodArgumentNotValidException ex
+    public ResponseEntity<ApiErrorResponse> handleBadRequest(
+            IllegalArgumentException ex,
+            HttpServletRequest request
     ) {
 
-        String message =
-                ex.getBindingResult()
-                        .getFieldErrors()
-                        .stream()
-                        .findFirst()
-                        .map(error ->
-                                error.getField()
-                                        + ": "
-                                        + error.getDefaultMessage()
-                        )
-                        .orElse("Validation failed");
-
-        return error(
+        return build(
                 HttpStatus.BAD_REQUEST,
-                message
+                ex.getMessage(),
+                request
         );
     }
 
-    @ExceptionHandler(Exception.class)
-    ResponseEntity<Map<String, Object>> handleGeneric(
-            Exception ex
+    @ExceptionHandler(
+            Exception.class
+    )
+    public ResponseEntity<ApiErrorResponse> handleGeneric(
+            Exception ex,
+            HttpServletRequest request
     ) {
 
-        return error(
+        return build(
                 HttpStatus.INTERNAL_SERVER_ERROR,
-                ex.getMessage() != null
-                        ? ex.getMessage()
-                        : "Unexpected error"
+                "Something went wrong",
+                request
         );
     }
 
-    private ResponseEntity<Map<String, Object>> error(
+    private ResponseEntity<ApiErrorResponse> build(
             HttpStatus status,
-            String message
+            String message,
+            HttpServletRequest request
     ) {
+
+        ApiErrorResponse response =
+                new ApiErrorResponse(
+                        status.value(),
+                        status.getReasonPhrase(),
+                        message,
+                        request.getRequestURI(),
+                        Instant.now()
+                );
 
         return ResponseEntity
                 .status(status)
-                .body(
-                        Map.of(
-                                "status",
-                                status.value(),
-
-                                "error",
-                                status.getReasonPhrase(),
-
-                                "message",
-                                message,
-
-                                "timestamp",
-                                Instant.now().toString()
-                        )
-                );
+                .body(response);
     }
 }
