@@ -1,4 +1,4 @@
-package com.buildfolio.backend.controller;
+package com.buildfolio.backend.controllers;
 
 import com.buildfolio.backend.dto.UserResponse;
 import com.buildfolio.backend.entity.User;
