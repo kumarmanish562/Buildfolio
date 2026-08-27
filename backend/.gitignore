@@ -31,6 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
-
-application-local.properties
+# Spring Boot secrets
+backend/src/main/resources/application.properties
+# Environment files
 .env
+.env.*
+!.env.example
