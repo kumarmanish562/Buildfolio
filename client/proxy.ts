@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const AUTH_COOKIE = "devpilot_auth";
+const AUTH_COOKIE = "buildfolio_auth";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
