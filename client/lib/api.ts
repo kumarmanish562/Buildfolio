@@ -32,7 +32,7 @@ export type Repository = {
 };
 
 export type IndexStatusResponse = {
-  repositoryId: string;
+  repositoryId?: string;
   indexStatus: IndexStatus;
   filesTotal: number;
   filesProcessed: number;
@@ -48,16 +48,18 @@ export type ChatSession = {
   createdAt: string;
 };
 
+export type MessageRole = "USER" | "ASSISTANT";
+
 export type Citation = {
-  filePath: string;
-  startLine: number | null;
-  endLine: number | null;
-  language: string | null;
+  filePath?: string;
+  startLine?: number;
+  endLine?: number;
+  language?: string;
 };
 
 export type ChatMessage = {
   id: string;
-  role: "USER" | "ASSISTANT";
+  role: MessageRole;
   content: string;
   citations: Citation[];
   createdAt: string;
@@ -65,7 +67,6 @@ export type ChatMessage = {
 
 export type HealthResponse = {
   status: string;
-  timestamp?: string;
 };
 
 export type TechStackCategory = {
@@ -81,192 +82,130 @@ export type Portfolio = {
   repositoryHtmlUrl: string;
   title: string;
   summary: string;
-  techStack: string;
+  techStack: string; // JSON array string of TechStackCategory
   architectureOverview: string;
   mermaidDiagram: string | null;
-  keyFeatures: string;
+  keyFeatures: string; // JSON array string of strings
   isPublic: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
-export class ApiError extends Error {
-  status: number;
+export type CreatePullRequestResponse = {
+  pullRequestUrl: string;
+  pullRequestNumber: number;
+  branchName: string;
+  message: string;
+};
 
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-  }
-}
+export type Vulnerability = {
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  title: string;
+  description: string;
+  remediation: string;
+};
 
-export function getApiBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "http://localhost:8080"
-  );
-}
+export type SecurityAudit = {
+  id: string;
+  repositoryId: string;
+  overallScore: number;
+  riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  summary: string;
+  vulnerabilities: string; // JSON array string of Vulnerability
+  recommendations: string; // JSON array string of strings
+  createdAt: string;
+};
 
-export function getGithubLoginUrl() {
-  return `${getApiBaseUrl()}/oauth2/authorization/github`;
-}
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-async function parseError(
-  res: Response
-): Promise<string> {
-  try {
-    const data = await res.json();
-
-    return (
-      data.message ??
-      data.error ??
-      data.detail ??
-      res.statusText ??
-      "Request failed"
-    );
-  } catch {
-    return (
-      res.statusText ||
-      "Request failed"
-    );
-  }
-}
-
-export async function apiFetch<T>(
+async function apiFetch<T>(
   path: string,
-  init?: RequestInit
+  options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(
-    `${getApiBaseUrl()}${path}`,
-    {
-      ...init,
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
-      cache: "no-store",
-    }
-  );
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    credentials: "include",
+  });
 
   if (!res.ok) {
-    throw new ApiError(
-      res.status,
-      await parseError(res)
-    );
+    let errorMsg = `API request failed with status ${res.status}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.message) {
+        errorMsg = errorData.message;
+      }
+    } catch {
+      // Ignore if response body isn't JSON
+    }
+    throw new Error(errorMsg);
   }
 
+  // Handle empty bodies (e.g. 204 No Content)
   if (res.status === 204) {
-    return undefined as T;
+    return {} as T;
   }
 
-  const contentType =
-    res.headers.get("content-type");
-
-  if (
-    !contentType?.includes(
-      "application/json"
-    )
-  ) {
-    return undefined as T;
-  }
-
-  return res.json() as Promise<T>;
+  return res.json();
 }
 
 export const api = {
   /* ================= AUTH ================= */
 
-  me: () =>
+  getCurrentUser: () =>
     apiFetch<User>("/api/auth/me"),
 
   logout: () =>
-    apiFetch<void>(
-      "/api/auth/logout",
-      {
-        method: "POST",
-      }
-    ),
+    apiFetch<void>("/api/auth/logout", {
+      method: "POST",
+    }),
 
   /* ================= REPOSITORIES ================= */
 
-  listRepos: (
-    refresh = true
-  ) =>
+  listRepositories: (refresh: boolean = false) =>
     apiFetch<Repository[]>(
       `/api/repos?refresh=${refresh}`
     ),
 
-  getRepo: (
-    id: string
-  ) =>
-    apiFetch<Repository>(
-      `/api/repos/${id}`
-    ),
+  getRepository: (id: string) =>
+    apiFetch<Repository>(`/api/repos/${id}`),
 
-  startIndex: (
-    id: string
-  ) =>
-    apiFetch<Repository>(
-      `/api/repos/${id}/index`,
-      {
-        method: "POST",
-      }
-    ),
+  indexRepository: (id: string) =>
+    apiFetch<Repository>(`/api/repos/${id}/index`, {
+      method: "POST",
+    }),
 
-  indexStatus: (
-    id: string
-  ) =>
+  getIndexStatus: (id: string) =>
     apiFetch<IndexStatusResponse>(
-      `/api/repos/${id}/status`
-    ),
-
-  deleteRepo: (
-    id: string
-  ) =>
-    apiFetch<void>(
-      `/api/repos/${id}`,
-      {
-        method: "DELETE",
-      }
+      `/api/repos/${id}/index-status`
     ),
 
   /* ================= CHAT ================= */
 
-  createSession: (
+  createChatSession: (
     repositoryId: string,
     title?: string
   ) =>
-    apiFetch<ChatSession>(
-      "/api/chat/sessions",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          repositoryId,
-          title,
-        }),
-      }
-    ),
+    apiFetch<ChatSession>("/api/chat/sessions", {
+      method: "POST",
+      body: JSON.stringify({ repositoryId, title }),
+    }),
 
-  listSessions: (
-    repositoryId: string
-  ) =>
+  listChatSessions: (repositoryId: string) =>
     apiFetch<ChatSession[]>(
-      `/api/chat/sessions?repositoryId=${encodeURIComponent(
-        repositoryId
-      )}`
+      `/api/chat/sessions?repositoryId=${repositoryId}`
     ),
 
-  getMessages: (
-    sessionId: string
-  ) =>
+  getChatMessages: (sessionId: string) =>
     apiFetch<ChatMessage[]>(
       `/api/chat/sessions/${sessionId}`
     ),
 
-  deleteSession: (
-    sessionId: string
-  ) =>
+  deleteChatSession: (sessionId: string) =>
     apiFetch<void>(
       `/api/chat/sessions/${sessionId}`,
       {
@@ -313,8 +252,31 @@ export const api = {
       }
     ),
 
+  exportArchitecturePr: (repoId: string) =>
+    apiFetch<CreatePullRequestResponse>(
+      `/api/repos/${repoId}/portfolio/export-pr`,
+      {
+        method: "POST",
+      }
+    ),
+
   getPublicPortfolio: (portfolioId: string) =>
     apiFetch<Portfolio>(
       `/api/public/portfolios/${portfolioId}`
+    ),
+
+  /* ================= SECURITY & AUDIT ================= */
+
+  runSecurityAudit: (repoId: string) =>
+    apiFetch<SecurityAudit>(
+      `/api/repos/${repoId}/audit/run`,
+      {
+        method: "POST",
+      }
+    ),
+
+  getLatestSecurityAudit: (repoId: string) =>
+    apiFetch<SecurityAudit>(
+      `/api/repos/${repoId}/audit`
     ),
 };

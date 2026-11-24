@@ -3,6 +3,7 @@ package com.buildfolio.backend.indexing.service.github;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -102,6 +103,74 @@ public class GithubApiClient {
             return String.valueOf(content);
         } catch (RestClientException ex) {
             throw new GithubApiException(502, "Unable to fetch file from GitHub: " + path);
+        }
+    }
+
+    public Map<String, Object> getRef(String accessToken, String owner, String repo, String ref) {
+        try {
+            return client(accessToken)
+                    .get()
+                    .uri("/repos/{owner}/{repo}/git/ref/{ref}", owner, repo, ref)
+                    .retrieve()
+                    .body(MAP);
+        } catch (RestClientException ex) {
+            throw new GithubApiException(502, "Unable to fetch git ref: " + ref);
+        }
+    }
+
+    public Map<String, Object> createRef(String accessToken, String owner, String repo, String ref, String sha) {
+        try {
+            return client(accessToken)
+                    .post()
+                    .uri("/repos/{owner}/{repo}/git/refs", owner, repo)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("ref", ref, "sha", sha))
+                    .retrieve()
+                    .body(MAP);
+        } catch (RestClientException ex) {
+            throw new GithubApiException(502, "Unable to create git branch ref: " + ref);
+        }
+    }
+
+    public Map<String, Object> createOrUpdateFile(
+            String accessToken, String owner, String repo, String path,
+            String message, String content, String branch) {
+        try {
+            String base64Content = Base64.getEncoder().encodeToString(content.getBytes(StandardCharsets.UTF_8));
+            return client(accessToken)
+                    .put()
+                    .uri("/repos/{owner}/{repo}/contents/{path}", owner, repo, path)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of(
+                            "message", message,
+                            "content", base64Content,
+                            "branch", branch
+                    ))
+                    .retrieve()
+                    .body(MAP);
+        } catch (RestClientException ex) {
+            throw new GithubApiException(502, "Unable to create/update file on GitHub: " + path);
+        }
+    }
+
+    public Map<String, Object> createPullRequest(
+            String accessToken, String owner, String repo,
+            String title, String head, String base, String body) {
+        try {
+            return client(accessToken)
+                    .post()
+                    .uri("/repos/{owner}/{repo}/pulls", owner, repo)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of(
+                            "title", title,
+                            "head", head,
+                            "base", base,
+                            "body", body
+                    ))
+                    .retrieve()
+                    .body(MAP);
+        } catch (RestClientException ex) {
+            throw new GithubApiException(502, "Unable to create pull request on GitHub: " + ex.getMessage());
         }
     }
 

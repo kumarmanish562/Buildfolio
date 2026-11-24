@@ -1,8 +1,11 @@
 package com.buildfolio.backend.portfolio.service;
 
+import com.buildfolio.backend.auth.service.UserService;
 import com.buildfolio.backend.chat.service.ai.CodeContextRetriever;
 import com.buildfolio.backend.common.exception.BadRequestException;
 import com.buildfolio.backend.common.exception.NotFoundException;
+import com.buildfolio.backend.indexing.service.github.GithubApiClient;
+import com.buildfolio.backend.portfolio.dto.CreatePullRequestResponse;
 import com.buildfolio.backend.portfolio.dto.PortfolioResponse;
 import com.buildfolio.backend.portfolio.entity.Portfolio;
 import com.buildfolio.backend.portfolio.repository.PortfolioRepository;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -28,6 +32,8 @@ public class PortfolioService {
 
     private final PortfolioRepository portfolioRepository;
     private final RepoService repoService;
+    private final UserService userService;
+    private final GithubApiClient githubApiClient;
     private final CodeContextRetriever codeContextRetriever;
     private final ChatModel chatModel;
     private final ObjectMapper objectMapper;
@@ -146,6 +152,87 @@ public class PortfolioService {
         Repository repo = repoService.requireOwned(repoId, userId);
         portfolioRepository.findByRepositoryId(repo.getId())
                 .ifPresent(portfolioRepository::delete);
+    }
+
+    @Transactional(readOnly = true)
+    public CreatePullRequestResponse createArchitecturePullRequest(UUID repoId, UUID userId) {
+        Repository repo = repoService.requireOwned(repoId, userId);
+        Portfolio portfolio = portfolioRepository.findByRepositoryId(repo.getId())
+                .orElseThrow(() -> new NotFoundException("Portfolio not found. Generate portfolio before exporting PR."));
+
+        String token = userService.decryptAccessToken(userService.requiredById(userId));
+        String baseBranch = repo.getDefaultBranch() != null ? repo.getDefaultBranch() : "main";
+        String newBranch = "buildfolio-docs-" + System.currentTimeMillis() % 10000;
+
+        // 1. Get base branch SHA
+        Map<String, Object> baseRef = githubApiClient.getRef(token, repo.getOwner(), repo.getName(), "heads/" + baseBranch);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> objectMap = (Map<String, Object>) baseRef.get("object");
+        if (objectMap == null || objectMap.get("sha") == null) {
+            throw new BadRequestException("Could not retrieve SHA for base branch: " + baseBranch);
+        }
+        String baseSha = objectMap.get("sha").toString();
+
+        // 2. Create new branch ref
+        githubApiClient.createRef(token, repo.getOwner(), repo.getName(), "refs/heads/" + newBranch, baseSha);
+
+        // 3. Format docs/ARCHITECTURE.md content
+        String docContent = """
+                # Architecture & Technical Documentation: %s
+                
+                Generated automatically by **[Buildfolio](https://github.com/kumarmanish562/Buildfolio)**.
+                
+                ## Executive Summary
+                %s
+                
+                ## Architecture Overview
+                %s
+                
+                ```mermaid
+                %s
+                ```
+                
+                ## Key Features
+                %s
+                
+                ## Tech Stack
+                %s
+                """.formatted(
+                portfolio.getTitle(),
+                portfolio.getSummary(),
+                portfolio.getArchitectureOverview(),
+                portfolio.getMermaidDiagram(),
+                portfolio.getKeyFeatures(),
+                portfolio.getTechStack()
+        );
+
+        // 4. Commit file to new branch
+        githubApiClient.createOrUpdateFile(
+                token, repo.getOwner(), repo.getName(),
+                "docs/ARCHITECTURE.md",
+                "docs: add system architecture and portfolio showcase",
+                docContent,
+                newBranch
+        );
+
+        // 5. Open Pull Request
+        Map<String, Object> prResult = githubApiClient.createPullRequest(
+                token, repo.getOwner(), repo.getName(),
+                "docs: add system architecture documentation",
+                newBranch,
+                baseBranch,
+                "### Buildfolio Automated Documentation Pull Request\n\nThis PR adds `docs/ARCHITECTURE.md` including executive summary, architecture overview, and Mermaid diagram."
+        );
+
+        String prUrl = prResult.getOrDefault("html_url", repo.getHtmlUrl() + "/pulls").toString();
+        int prNumber = prResult.get("number") instanceof Number n ? n.intValue() : 1;
+
+        return new CreatePullRequestResponse(
+                prUrl,
+                prNumber,
+                newBranch,
+                "Pull request created successfully"
+        );
     }
 
     private ParsedPortfolio parsePortfolioJson(String rawResponse, Repository repo) {

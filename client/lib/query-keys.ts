@@ -51,7 +51,18 @@ export const queryKeys = {
 
   portfolio: {
     all: ["portfolio"] as const,
-    byRepo: (repoId: string) => [...queryKeys.portfolio.all, "repo", repoId] as const,
-    public: (portfolioId: string) => [...queryKeys.portfolio.all, "public", portfolioId] as const,
+
+    byRepo: (repoId: string) =>
+      [...queryKeys.portfolio.all, "repo", repoId] as const,
+
+    public: (portfolioId: string) =>
+      [...queryKeys.portfolio.all, "public", portfolioId] as const,
+  },
+
+  audit: {
+    all: ["audit"] as const,
+
+    byRepo: (repoId: string) =>
+      [...queryKeys.audit.all, "repo", repoId] as const,
   },
 };

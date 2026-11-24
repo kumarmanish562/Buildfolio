@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, Portfolio } from "@/lib/api";
+import { api, Portfolio, CreatePullRequestResponse } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 
 export function usePortfolio(repoId: string, enabled = true) {
@@ -39,6 +39,12 @@ export function useUpdatePortfolioVisibility(repoId: string) {
         queryKey: queryKeys.portfolio.byRepo(repoId),
       });
     },
+  });
+}
+
+export function useExportArchitecturePr(repoId: string) {
+  return useMutation({
+    mutationFn: () => api.exportArchitecturePr(repoId),
   });
 }
 

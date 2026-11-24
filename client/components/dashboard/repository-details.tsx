@@ -15,6 +15,7 @@ import {
   MessageSquare,
   RefreshCw,
   Search,
+  Shield,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -304,6 +305,23 @@ export function RepositoryDetails({
                     />
 
                     Technical Portfolio
+                  </Button>
+                )}
+
+                {ready && (
+                  <Button
+                    variant="outline"
+                    render={
+                      <Link
+                        href={`/dashboard/repos/${repo.id}/audit`}
+                      />
+                    }
+                  >
+                    <Shield
+                      data-icon="inline-start"
+                    />
+
+                    Security Audit
                   </Button>
                 )}
 

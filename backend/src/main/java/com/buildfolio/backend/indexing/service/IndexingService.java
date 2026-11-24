@@ -6,6 +6,7 @@ import com.buildfolio.backend.common.exception.BadRequestException;
 import com.buildfolio.backend.common.exception.NotFoundException;
 import com.buildfolio.backend.indexing.service.github.GitHubRateLimiter;
 import com.buildfolio.backend.indexing.service.github.GithubApiClient;
+import com.buildfolio.backend.repo.dto.IndexStatusResponse;
 import com.buildfolio.backend.repo.entity.IndexStatus;
 import com.buildfolio.backend.repo.entity.Repository;
 import com.buildfolio.backend.repo.repository.RepositoryRepository;
@@ -30,7 +31,7 @@ import java.util.UUID;
 @Slf4j
 public class IndexingService {
     private static final int VECTOR_BATCH_SIZE = 32;
-    private static final int PROGRESS_EVERY_N_FILES = 5;
+    private static final int PROGRESS_EVERY_N_FILES = 2;
 
     private final RepositoryRepository repositoryRepository;
     private final UserService userService;
@@ -39,6 +40,7 @@ public class IndexingService {
     private final CodeChunker codeChunker;
     private final GitHubRateLimiter rateLimiter;
     private final VectorStore vectorStore;
+    private final IndexingProgressBroadcaster progressBroadcaster;
 
     @Value("${app.indexing.max-file-bytes:102400}")
     private long maxFileBytes;
@@ -57,7 +59,13 @@ public class IndexingService {
         repo.setChunkCount(0);
         repo.setErrorMessage(null);
         repo.setUpdatedAt(Instant.now());
-        return repositoryRepository.save(repo);
+        Repository saved = repositoryRepository.save(repo);
+
+        progressBroadcaster.broadcast(repoId, new IndexStatusResponse(
+                IndexStatus.INDEXING, 0, 0, 0, null, null
+        ));
+
+        return saved;
     }
 
     @Async("indexingExecutor")
@@ -137,8 +145,8 @@ public class IndexingService {
     public void deleteVectors(String repoId) {
         try {
             var filter = new FilterExpressionBuilder()
-                    .eq(RagSettings.METADATA_REPO_ID, repoId)
-                    .build();
+                .eq(RagSettings.METADATA_REPO_ID, repoId)
+                .build();
 
             vectorStore.delete(filter);
             log.info("Deleted vectors for repository {}", repoId);
@@ -164,6 +172,10 @@ public class IndexingService {
             repo.setErrorMessage(error);
             repo.setUpdatedAt(Instant.now());
             repositoryRepository.save(repo);
+
+            progressBroadcaster.broadcast(repoId, new IndexStatusResponse(
+                    status, total, processed, chunks, repo.getIndexedAt(), error
+            ));
         });
     }
 
@@ -178,6 +190,10 @@ public class IndexingService {
             repo.setErrorMessage(null);
             repo.setUpdatedAt(Instant.now());
             repositoryRepository.save(repo);
+
+            progressBroadcaster.broadcast(repoId, new IndexStatusResponse(
+                    IndexStatus.READY, totalFiles, processedFiles, totalChunks, repo.getIndexedAt(), null
+            ));
         });
         log.info("Indexed {} files ({} chunks) for {}", processedFiles, totalChunks, fullName);
     }
@@ -191,6 +207,10 @@ public class IndexingService {
                     : message);
             repo.setUpdatedAt(Instant.now());
             repositoryRepository.save(repo);
+
+            progressBroadcaster.broadcast(repoId, new IndexStatusResponse(
+                    IndexStatus.FAILED, repo.getFilesTotal(), repo.getFilesProcessed(), repo.getChunkCount(), repo.getIndexedAt(), repo.getErrorMessage()
+            ));
         });
     }
 }

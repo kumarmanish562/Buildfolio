@@ -1,6 +1,7 @@
 package com.buildfolio.backend.portfolio.controller;
 
 import com.buildfolio.backend.common.security.CurrentUser;
+import com.buildfolio.backend.portfolio.dto.CreatePullRequestResponse;
 import com.buildfolio.backend.portfolio.dto.PortfolioResponse;
 import com.buildfolio.backend.portfolio.dto.UpdatePortfolioVisibilityRequest;
 import com.buildfolio.backend.portfolio.service.PortfolioService;
@@ -46,6 +47,12 @@ public class PortfolioController {
     public void delete(@PathVariable UUID id) {
         UUID userId = currentUser.require().getId();
         portfolioService.deletePortfolio(id, userId);
+    }
+
+    @PostMapping("/api/repos/{id}/portfolio/export-pr")
+    public CreatePullRequestResponse exportPullRequest(@PathVariable UUID id) {
+        UUID userId = currentUser.require().getId();
+        return portfolioService.createArchitecturePullRequest(id, userId);
     }
 
     @GetMapping("/api/public/portfolios/{id}")
