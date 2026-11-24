@@ -2,24 +2,64 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: buildfolio-postgres
-
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: buildfolio
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-
+      POSTGRES_DB: ${POSTGRES_DB:-buildfolio}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5433:5432"
-
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - buildfolio_pg_data:/var/lib/postgresql/data
       - ./docker/postgres/init-extensions.sql:/docker-entrypoint-initdb.d/01-extensions.sql:ro
-
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d buildfolio"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-buildfolio}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - buildfolio-net
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: buildfolio-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-buildfolio}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_AI_OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://localhost:3000}
+    networks:
+      - buildfolio-net
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: buildfolio-client
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    networks:
+      - buildfolio-net
+
+networks:
+  buildfolio-net:
+    driver: bridge
 
 volumes:
   buildfolio_pg_data:
