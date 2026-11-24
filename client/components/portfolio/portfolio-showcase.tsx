@@ -33,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GitHubIcon } from "@/components/icons/github-icon";
+import { MermaidDiagramViewer } from "@/components/portfolio/mermaid-diagram-viewer";
 
 export function PortfolioShowcase({
   repoId,
@@ -425,13 +426,11 @@ ${featuresMarkdown}
           </p>
 
           {portfolio.mermaidDiagram && (
-            <div className="mt-6 space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Architecture Flow
-              </span>
-              <pre className="overflow-x-auto rounded-xl bg-muted/70 p-4 font-mono text-xs leading-5 text-foreground">
-                <code>{portfolio.mermaidDiagram}</code>
-              </pre>
+            <div className="mt-6">
+              <MermaidDiagramViewer
+                chart={portfolio.mermaidDiagram}
+                title={`${portfolio.repositoryName} Architecture`}
+              />
             </div>
           )}
         </div>

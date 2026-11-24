@@ -119,6 +119,26 @@ export type FixVulnerabilityResponse = {
   explanation: string;
 };
 
+export type RepoComparisonItem = {
+  repositoryId: string;
+  name: string;
+  fullName: string;
+  language: string;
+  indexStatus: string;
+  filesCount: number;
+  chunkCount: number;
+  portfolioTitle: string;
+  architectureSummary: string;
+  techStackCategories: string[];
+  securityScore: number | null;
+  securityRiskLevel: string;
+};
+
+export type RepoComparisonResponse = {
+  repositories: RepoComparisonItem[];
+  crossArchitectureSummary: string;
+};
+
 export type SecurityAudit = {
   id: string;
   repositoryId: string;
@@ -303,6 +323,17 @@ export const api = {
       {
         method: "POST",
         body: JSON.stringify(request),
+      }
+    ),
+
+  /* ================= COMPARISON ================= */
+
+  compareRepositories: (repositoryIds: string[]) =>
+    apiFetch<RepoComparisonResponse>(
+      "/api/repos/compare",
+      {
+        method: "POST",
+        body: JSON.stringify(repositoryIds),
       }
     ),
 };

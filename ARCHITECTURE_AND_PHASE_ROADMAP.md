@@ -200,6 +200,12 @@ flowchart LR
      - Added `IndexingProgressBroadcaster.java` with `/api/repos/{id}/index-stream` SSE streaming file-by-file progress directly to connected clients.
   5. **AI Code Refactoring & "Fix Vulnerability" PR Generator**:
      - `POST /api/repos/{id}/audit/fix` inspects targeted vulnerabilities, fetches the corresponding source files, prompts Spring AI for secure remediations, creates a dedicated branch (`buildfolio-sec-fix-...`), commits the fixed code, and opens a GitHub Pull Request with clear explanations.
+  6. **Live Frontend SSE Indexing Progress Bar**:
+     - Replaced polling with `useIndexProgressStream` hook subscribing to `/api/repos/{id}/index-stream` for live file-by-file animation.
+  7. **Interactive Mermaid.js Diagram Viewer**:
+     - Embedded `MermaidDiagramViewer` with pan, zoom controls (60% to 200%), and SVG vector export.
+  8. **Multi-Repo Comparative Architecture & Tech Stack Matrix**:
+     - `POST /api/repos/compare` and interactive `/dashboard/compare` view providing side-by-side polyglot matrix and cross-architecture AI synergy evaluation.
 
 ---
 

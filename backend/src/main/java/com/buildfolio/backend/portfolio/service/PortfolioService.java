@@ -1,5 +1,7 @@
 package com.buildfolio.backend.portfolio.service;
 
+import com.buildfolio.backend.audit.entity.SecurityAudit;
+import com.buildfolio.backend.audit.repository.SecurityAuditRepository;
 import com.buildfolio.backend.auth.service.UserService;
 import com.buildfolio.backend.chat.service.ai.CodeContextRetriever;
 import com.buildfolio.backend.common.exception.BadRequestException;
@@ -7,6 +9,8 @@ import com.buildfolio.backend.common.exception.NotFoundException;
 import com.buildfolio.backend.indexing.service.github.GithubApiClient;
 import com.buildfolio.backend.portfolio.dto.CreatePullRequestResponse;
 import com.buildfolio.backend.portfolio.dto.PortfolioResponse;
+import com.buildfolio.backend.portfolio.dto.RepoComparisonItem;
+import com.buildfolio.backend.portfolio.dto.RepoComparisonResponse;
 import com.buildfolio.backend.portfolio.entity.Portfolio;
 import com.buildfolio.backend.portfolio.repository.PortfolioRepository;
 import com.buildfolio.backend.repo.entity.IndexStatus;
@@ -22,8 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ import java.util.UUID;
 public class PortfolioService {
 
     private final PortfolioRepository portfolioRepository;
+    private final SecurityAuditRepository securityAuditRepository;
     private final RepoService repoService;
     private final UserService userService;
     private final GithubApiClient githubApiClient;
@@ -164,7 +168,6 @@ public class PortfolioService {
         String baseBranch = repo.getDefaultBranch() != null ? repo.getDefaultBranch() : "main";
         String newBranch = "buildfolio-docs-" + System.currentTimeMillis() % 10000;
 
-        // 1. Get base branch SHA
         Map<String, Object> baseRef = githubApiClient.getRef(token, repo.getOwner(), repo.getName(), "heads/" + baseBranch);
         @SuppressWarnings("unchecked")
         Map<String, Object> objectMap = (Map<String, Object>) baseRef.get("object");
@@ -173,10 +176,8 @@ public class PortfolioService {
         }
         String baseSha = objectMap.get("sha").toString();
 
-        // 2. Create new branch ref
         githubApiClient.createRef(token, repo.getOwner(), repo.getName(), "refs/heads/" + newBranch, baseSha);
 
-        // 3. Format docs/ARCHITECTURE.md content
         String docContent = """
                 # Architecture & Technical Documentation: %s
                 
@@ -206,7 +207,6 @@ public class PortfolioService {
                 portfolio.getTechStack()
         );
 
-        // 4. Commit file to new branch
         githubApiClient.createOrUpdateFile(
                 token, repo.getOwner(), repo.getName(),
                 "docs/ARCHITECTURE.md",
@@ -215,7 +215,6 @@ public class PortfolioService {
                 newBranch
         );
 
-        // 5. Open Pull Request
         Map<String, Object> prResult = githubApiClient.createPullRequest(
                 token, repo.getOwner(), repo.getName(),
                 "docs: add system architecture documentation",
@@ -233,6 +232,75 @@ public class PortfolioService {
                 newBranch,
                 "Pull request created successfully"
         );
+    }
+
+    @Transactional(readOnly = true)
+    public RepoComparisonResponse compareRepositories(List<UUID> repoIds, UUID userId) {
+        if (repoIds == null || repoIds.isEmpty() || repoIds.size() > 5) {
+            throw new BadRequestException("Please select between 1 and 5 repositories to compare");
+        }
+
+        List<RepoComparisonItem> items = new ArrayList<>();
+        StringBuilder summaryContext = new StringBuilder();
+
+        for (UUID repoId : repoIds) {
+            Repository repo = repoService.requireOwned(repoId, userId);
+            Optional<Portfolio> portfolioOpt = portfolioRepository.findByRepositoryId(repo.getId());
+            Optional<SecurityAudit> auditOpt = securityAuditRepository.findTopByRepositoryIdOrderByCreatedAtDesc(repo.getId());
+
+            List<String> techCats = new ArrayList<>();
+            if (portfolioOpt.isPresent()) {
+                try {
+                    JsonNode node = objectMapper.readTree(portfolioOpt.get().getTechStack());
+                    if (node.isArray()) {
+                        for (JsonNode cat : node) {
+                            if (cat.hasNonNull("category")) {
+                                techCats.add(cat.get("category").asText());
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    techCats.add(repo.getLanguage() != null ? repo.getLanguage() : "General");
+                }
+            }
+
+            RepoComparisonItem item = new RepoComparisonItem(
+                    repo.getId(),
+                    repo.getName(),
+                    repo.getFullName(),
+                    repo.getLanguage() != null ? repo.getLanguage() : "Unknown",
+                    repo.getIndexStatus().name(),
+                    repo.getFilesTotal(),
+                    repo.getChunkCount(),
+                    portfolioOpt.map(Portfolio::getTitle).orElse("Not Generated"),
+                    portfolioOpt.map(Portfolio::getArchitectureOverview).orElse("Standard architecture"),
+                    techCats,
+                    auditOpt.map(SecurityAudit::getOverallScore).orElse(null),
+                    auditOpt.map(SecurityAudit::getRiskLevel).orElse("UNAUDITED")
+            );
+            items.add(item);
+
+            summaryContext.append("Repo: ").append(repo.getFullName())
+                    .append(" | Language: ").append(repo.getLanguage())
+                    .append(" | Tech: ").append(String.join(", ", techCats))
+                    .append(" | Score: ").append(item.securityScore())
+                    .append("\n");
+        }
+
+        String crossSummaryPrompt = """
+                You are a Principal Enterprise Systems Architect.
+                Review the following repositories from a developer's portfolio and provide a concise 2-paragraph comparative architectural analysis, highlighting synergy, common technology patterns, and polyglot balance:
+                
+                %s
+                """.formatted(summaryContext.toString());
+
+        String crossSummary = ChatClient.builder(chatModel)
+                .build()
+                .prompt(crossSummaryPrompt)
+                .call()
+                .content();
+
+        return new RepoComparisonResponse(items, crossSummary != null ? crossSummary.trim() : "Comparison matrix synthesized successfully.");
     }
 
     private ParsedPortfolio parsePortfolioJson(String rawResponse, Repository repo) {

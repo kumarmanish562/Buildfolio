@@ -29,6 +29,7 @@ import {
   useRepository,
   useStartIndexing,
 } from "@/hooks/use-repos";
+import { useIndexProgressStream } from "@/hooks/use-index-progress-stream";
 
 import { IndexStatusBadge } from "@/components/dashboard/repo-status";
 import { LanguageBadge } from "@/components/dashboard/language-badge";
@@ -121,26 +122,36 @@ export function RepositoryDetails({
   }
 
   /* ================================================================
-     Current Index Status
+     Current Index Status & Real-time Progress
   ================================================================= */
 
+  const streamStatus = useIndexProgressStream(
+    repoId,
+    repo?.indexStatus === "INDEXING" || statusQuery.data?.indexStatus === "INDEXING"
+  );
+
   const indexStatus =
+    streamStatus?.indexStatus ??
     statusQuery.data?.indexStatus ??
     repo.indexStatus;
 
   const filesTotal =
+    streamStatus?.filesTotal ??
     statusQuery.data?.filesTotal ??
     repo.filesTotal;
 
   const filesProcessed =
+    streamStatus?.filesProcessed ??
     statusQuery.data?.filesProcessed ??
     repo.filesProcessed;
 
   const chunkCount =
+    streamStatus?.chunkCount ??
     statusQuery.data?.chunkCount ??
     repo.chunkCount;
 
   const errorMessage =
+    streamStatus?.errorMessage ??
     statusQuery.data?.errorMessage ??
     repo.errorMessage;
 

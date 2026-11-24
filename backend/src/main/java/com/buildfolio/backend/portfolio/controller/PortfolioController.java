@@ -59,4 +59,12 @@ public class PortfolioController {
     public PortfolioResponse getPublic(@PathVariable UUID id) {
         return portfolioService.getPublicPortfolio(id);
     }
+
+    @PostMapping("/api/repos/compare")
+    public com.buildfolio.backend.portfolio.dto.RepoComparisonResponse compareRepositories(
+            @RequestBody java.util.List<UUID> repositoryIds
+    ) {
+        UUID userId = currentUser.require().getId();
+        return portfolioService.compareRepositories(repositoryIds, userId);
+    }
 }
