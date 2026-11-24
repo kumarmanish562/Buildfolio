@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, SecurityAudit } from "@/lib/api";
+import { api, SecurityAudit, FixVulnerabilityRequest, FixVulnerabilityResponse } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 
 export function useSecurityAudit(repoId: string, enabled = true) {
@@ -24,5 +24,12 @@ export function useRunSecurityAudit(repoId: string) {
         queryKey: queryKeys.audit.byRepo(repoId),
       });
     },
+  });
+}
+
+export function useFixVulnerability(repoId: string) {
+  return useMutation({
+    mutationFn: (request: FixVulnerabilityRequest) =>
+      api.fixVulnerability(repoId, request),
   });
 }

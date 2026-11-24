@@ -1,11 +1,15 @@
 package com.buildfolio.backend.audit.service;
 
+import com.buildfolio.backend.audit.dto.FixVulnerabilityRequest;
+import com.buildfolio.backend.audit.dto.FixVulnerabilityResponse;
 import com.buildfolio.backend.audit.dto.SecurityAuditResponse;
 import com.buildfolio.backend.audit.entity.SecurityAudit;
 import com.buildfolio.backend.audit.repository.SecurityAuditRepository;
+import com.buildfolio.backend.auth.service.UserService;
 import com.buildfolio.backend.chat.service.ai.CodeContextRetriever;
 import com.buildfolio.backend.common.exception.BadRequestException;
 import com.buildfolio.backend.common.exception.NotFoundException;
+import com.buildfolio.backend.indexing.service.github.GithubApiClient;
 import com.buildfolio.backend.repo.entity.IndexStatus;
 import com.buildfolio.backend.repo.entity.Repository;
 import com.buildfolio.backend.repo.service.RepoService;
@@ -19,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -28,6 +33,8 @@ public class SecurityAuditService {
 
     private final SecurityAuditRepository auditRepository;
     private final RepoService repoService;
+    private final UserService userService;
+    private final GithubApiClient githubApiClient;
     private final CodeContextRetriever codeContextRetriever;
     private final ChatModel chatModel;
     private final ObjectMapper objectMapper;
@@ -108,6 +115,197 @@ public class SecurityAuditService {
         return toResponse(audit);
     }
 
+    @Transactional(readOnly = true)
+    public FixVulnerabilityResponse generateAndApplyVulnerabilityFix(
+            UUID repoId, UUID userId, FixVulnerabilityRequest request) {
+
+        Repository repo = repoService.requireOwned(repoId, userId);
+        String token = userService.decryptAccessToken(userService.requiredById(userId));
+
+        // 1. Retrieve the most relevant code file context for this vulnerability
+        var context = codeContextRetriever.retrieve(
+                repo.getId(),
+                request.vulnerabilityTitle() + " " + request.vulnerabilityDescription()
+        );
+
+        String relevantFilePath = "SECURITY.md";
+        if (!context.citations().isEmpty() && context.citations().get(0).filePath() != null) {
+            relevantFilePath = context.citations().get(0).filePath();
+        }
+
+        // 2. Fetch existing file content from GitHub if possible
+        String originalFileContent = "";
+        try {
+            originalFileContent = githubApiClient.getFileContent(
+                    token, repo.getOwner(), repo.getName(), relevantFilePath);
+        } catch (Exception e) {
+            log.info("Target file {} not found on GitHub, generating patch note", relevantFilePath);
+        }
+
+        // 3. Prompt Spring AI to produce the fixed source code
+        String systemPrompt = """
+                You are BuildFolio's Senior Application Security Engineer.
+                Your task is to fix the following security vulnerability in repository %s:
+                Title: %s
+                Description: %s
+                Remediation: %s
+
+                STRICT INSTRUCTIONS:
+                1. Output ONLY a valid JSON object matching the schema below. No markdown backticks, no explanatory commentary outside the JSON.
+                2. In fixedContent, provide the complete, working, production-hardened source code or configuration.
+                3. In explanation, summarize what was changed and why it resolves the vulnerability.
+
+                JSON SCHEMA:
+                {
+                  "filePath": "%s",
+                  "fixedContent": "... full fixed content ...",
+                  "explanation": "Explanation of fix"
+                }
+                """.formatted(
+                repo.getFullName(),
+                request.vulnerabilityTitle(),
+                request.vulnerabilityDescription(),
+                request.remediation() != null ? request.remediation() : "",
+                relevantFilePath
+        );
+
+        String userPrompt = """
+                <file_path>%s</file_path>
+                <existing_code>
+                %s
+                </existing_code>
+
+                Generate the security patch now.
+                """.formatted(
+                relevantFilePath,
+                (originalFileContent != null && !originalFileContent.isBlank()) ? originalFileContent : context.contextText()
+        );
+
+        String rawResponse = ChatClient.builder(chatModel)
+                .build()
+                .prompt()
+                .system(systemPrompt)
+                .user(userPrompt)
+                .call()
+                .content();
+
+        ParsedFix parsedFix = parseFixJson(rawResponse, relevantFilePath, request);
+
+        // 4. Create Git branch and open Pull Request on GitHub
+        String baseBranch = repo.getDefaultBranch() != null ? repo.getDefaultBranch() : "main";
+        String newBranch = "buildfolio-sec-fix-" + System.currentTimeMillis() % 10000;
+
+        Map<String, Object> baseRef = githubApiClient.getRef(token, repo.getOwner(), repo.getName(), "heads/" + baseBranch);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> objectMap = (Map<String, Object>) baseRef.get("object");
+        if (objectMap == null || objectMap.get("sha") == null) {
+            throw new BadRequestException("Could not retrieve SHA for base branch: " + baseBranch);
+        }
+        String baseSha = objectMap.get("sha").toString();
+
+        githubApiClient.createRef(token, repo.getOwner(), repo.getName(), "refs/heads/" + newBranch, baseSha);
+
+        githubApiClient.createOrUpdateFile(
+                token, repo.getOwner(), repo.getName(),
+                parsedFix.filePath(),
+                "fix(security): resolve " + request.vulnerabilityTitle(),
+                parsedFix.fixedContent(),
+                newBranch
+        );
+
+        String prBody = """
+                ### 🛡️ BuildFolio Automated Security Fix
+
+                **Resolved Vulnerability**: %s
+                **Severity / Context**: %s
+                **File Modified**: `%s`
+
+                #### Description of Changes:
+                %s
+
+                ---
+                *Automated security PR generated by BuildFolio.*
+                """.formatted(
+                request.vulnerabilityTitle(),
+                request.vulnerabilityDescription(),
+                parsedFix.filePath(),
+                parsedFix.explanation()
+        );
+
+        Map<String, Object> prResult = githubApiClient.createPullRequest(
+                token, repo.getOwner(), repo.getName(),
+                "fix(security): resolve " + request.vulnerabilityTitle(),
+                newBranch,
+                baseBranch,
+                prBody
+        );
+
+        String prUrl = prResult.getOrDefault("html_url", repo.getHtmlUrl() + "/pulls").toString();
+        int prNumber = prResult.get("number") instanceof Number n ? n.intValue() : 1;
+
+        return new FixVulnerabilityResponse(
+                prUrl,
+                prNumber,
+                newBranch,
+                parsedFix.filePath(),
+                parsedFix.explanation()
+        );
+    }
+
+    private ParsedFix parseFixJson(String rawResponse, String defaultPath, FixVulnerabilityRequest request) {
+        if (rawResponse == null || rawResponse.isBlank()) {
+            return fallbackFix(defaultPath, request);
+        }
+
+        String cleaned = rawResponse.trim();
+        if (cleaned.startsWith("```json")) {
+            cleaned = cleaned.substring(7);
+        } else if (cleaned.startsWith("```")) {
+            cleaned = cleaned.substring(3);
+        }
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 3);
+        }
+        cleaned = cleaned.trim();
+
+        try {
+            JsonNode root = objectMapper.readTree(cleaned);
+            String filePath = root.hasNonNull("filePath") ? root.get("filePath").asText() : defaultPath;
+            String fixedContent = root.hasNonNull("fixedContent") ? root.get("fixedContent").asText() : "";
+            String explanation = root.hasNonNull("explanation") ? root.get("explanation").asText() : "Applied security remediation.";
+
+            if (fixedContent.isBlank()) {
+                return fallbackFix(defaultPath, request);
+            }
+            return new ParsedFix(filePath, fixedContent, explanation);
+        } catch (Exception e) {
+            log.warn("Failed to parse fix JSON: {}", e.getMessage());
+            return fallbackFix(defaultPath, request);
+        }
+    }
+
+    private ParsedFix fallbackFix(String defaultPath, FixVulnerabilityRequest request) {
+        String note = """
+                # Security Advisory & Patch Notice: %s
+                
+                **Vulnerability**: %s
+                
+                ## Recommended Remediation Steps:
+                %s
+                
+                *Please review your repository configuration to ensure safe input handling and dependency hygiene.*
+                """.formatted(
+                request.vulnerabilityTitle(),
+                request.vulnerabilityDescription(),
+                request.remediation() != null ? request.remediation() : "Follow OWASP top 10 best practices."
+        );
+        return new ParsedFix(
+                defaultPath.endsWith(".md") ? defaultPath : "docs/SECURITY_PATCH.md",
+                note,
+                "Generated automated security advisory documentation for " + request.vulnerabilityTitle()
+        );
+    }
+
     private ParsedAudit parseAuditJson(String rawResponse, Repository repo) {
         if (rawResponse == null || rawResponse.isBlank()) {
             return fallbackAudit(repo);
@@ -172,5 +370,11 @@ public class SecurityAuditService {
             String summary,
             String vulnerabilities,
             String recommendations
+    ) {}
+
+    private record ParsedFix(
+            String filePath,
+            String fixedContent,
+            String explanation
     ) {}
 }

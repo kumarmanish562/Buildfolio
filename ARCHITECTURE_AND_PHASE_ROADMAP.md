@@ -198,6 +198,8 @@ flowchart LR
      - Interactive UI at `/dashboard/repos/[repoId]/audit`.
   4. **Real-Time Indexing Progress SSE Broadcaster**:
      - Added `IndexingProgressBroadcaster.java` with `/api/repos/{id}/index-stream` SSE streaming file-by-file progress directly to connected clients.
+  5. **AI Code Refactoring & "Fix Vulnerability" PR Generator**:
+     - `POST /api/repos/{id}/audit/fix` inspects targeted vulnerabilities, fetches the corresponding source files, prompts Spring AI for secure remediations, creates a dedicated branch (`buildfolio-sec-fix-...`), commits the fixed code, and opens a GitHub Pull Request with clear explanations.
 
 ---
 

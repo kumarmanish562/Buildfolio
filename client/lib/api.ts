@@ -105,6 +105,20 @@ export type Vulnerability = {
   remediation: string;
 };
 
+export type FixVulnerabilityRequest = {
+  vulnerabilityTitle: string;
+  vulnerabilityDescription: string;
+  remediation?: string;
+};
+
+export type FixVulnerabilityResponse = {
+  pullRequestUrl: string;
+  pullRequestNumber: number;
+  branchName: string;
+  filePath: string;
+  explanation: string;
+};
+
 export type SecurityAudit = {
   id: string;
   repositoryId: string;
@@ -278,5 +292,17 @@ export const api = {
   getLatestSecurityAudit: (repoId: string) =>
     apiFetch<SecurityAudit>(
       `/api/repos/${repoId}/audit`
+    ),
+
+  fixVulnerability: (
+    repoId: string,
+    request: FixVulnerabilityRequest
+  ) =>
+    apiFetch<FixVulnerabilityResponse>(
+      `/api/repos/${repoId}/audit/fix`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      }
     ),
 };

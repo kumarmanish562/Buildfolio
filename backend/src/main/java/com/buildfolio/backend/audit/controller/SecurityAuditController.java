@@ -1,8 +1,11 @@
 package com.buildfolio.backend.audit.controller;
 
+import com.buildfolio.backend.audit.dto.FixVulnerabilityRequest;
+import com.buildfolio.backend.audit.dto.FixVulnerabilityResponse;
 import com.buildfolio.backend.audit.dto.SecurityAuditResponse;
 import com.buildfolio.backend.audit.service.SecurityAuditService;
 import com.buildfolio.backend.common.security.CurrentUser;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,5 +32,14 @@ public class SecurityAuditController {
     public SecurityAuditResponse getLatestAudit(@PathVariable UUID id) {
         UUID userId = currentUser.require().getId();
         return auditService.getLatestAudit(id, userId);
+    }
+
+    @PostMapping("/fix")
+    public FixVulnerabilityResponse fixVulnerability(
+            @PathVariable UUID id,
+            @Valid @RequestBody FixVulnerabilityRequest request
+    ) {
+        UUID userId = currentUser.require().getId();
+        return auditService.generateAndApplyVulnerabilityFix(id, userId, request);
     }
 }
