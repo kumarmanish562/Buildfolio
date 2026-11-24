@@ -68,6 +68,28 @@ export type HealthResponse = {
   timestamp?: string;
 };
 
+export type TechStackCategory = {
+  category: string;
+  items: string[];
+};
+
+export type Portfolio = {
+  id: string;
+  repositoryId: string;
+  repositoryName: string;
+  repositoryFullName: string;
+  repositoryHtmlUrl: string;
+  title: string;
+  summary: string;
+  techStack: string;
+  architectureOverview: string;
+  mermaidDiagram: string | null;
+  keyFeatures: string;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export class ApiError extends Error {
   status: number;
 
@@ -257,5 +279,42 @@ export const api = {
   health: () =>
     apiFetch<HealthResponse>(
       "/actuator/health"
+    ),
+
+  /* ================= PORTFOLIO ================= */
+
+  generatePortfolio: (repoId: string) =>
+    apiFetch<Portfolio>(
+      `/api/repos/${repoId}/portfolio/generate`,
+      {
+        method: "POST",
+      }
+    ),
+
+  getPortfolio: (repoId: string) =>
+    apiFetch<Portfolio>(
+      `/api/repos/${repoId}/portfolio`
+    ),
+
+  updatePortfolioVisibility: (repoId: string, isPublic: boolean) =>
+    apiFetch<Portfolio>(
+      `/api/repos/${repoId}/portfolio/visibility`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ isPublic }),
+      }
+    ),
+
+  deletePortfolio: (repoId: string) =>
+    apiFetch<void>(
+      `/api/repos/${repoId}/portfolio`,
+      {
+        method: "DELETE",
+      }
+    ),
+
+  getPublicPortfolio: (portfolioId: string) =>
+    apiFetch<Portfolio>(
+      `/api/public/portfolios/${portfolioId}`
     ),
 };

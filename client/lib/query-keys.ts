@@ -48,4 +48,10 @@ export const queryKeys = {
         sessionId,
       ] as const,
   },
+
+  portfolio: {
+    all: ["portfolio"] as const,
+    byRepo: (repoId: string) => [...queryKeys.portfolio.all, "repo", repoId] as const,
+    public: (portfolioId: string) => [...queryKeys.portfolio.all, "public", portfolioId] as const,
+  },
 };

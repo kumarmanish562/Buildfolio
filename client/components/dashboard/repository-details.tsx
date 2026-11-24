@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowUpRight,
+  Briefcase,
   Database,
   FileCode2,
   GitBranch,
@@ -286,6 +287,23 @@ export function RepositoryDetails({
                     <ArrowUpRight
                       data-icon="inline-end"
                     />
+                  </Button>
+                )}
+
+                {ready && (
+                  <Button
+                    variant="outline"
+                    render={
+                      <Link
+                        href={`/dashboard/repos/${repo.id}/portfolio`}
+                      />
+                    }
+                  >
+                    <Briefcase
+                      data-icon="inline-start"
+                    />
+
+                    Technical Portfolio
                   </Button>
                 )}
 
