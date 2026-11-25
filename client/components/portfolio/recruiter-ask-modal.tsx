@@ -43,32 +43,119 @@ export function RecruiterAskModal({
   const [history, setHistory] = React.useState<
     { question: string; answer: string; citations: Citation[] }[]
   >([]);
+  const [streamingAnswer, setStreamingAnswer] = React.useState<string | null>(null);
+  const [streamingCitations, setStreamingCitations] = React.useState<Citation[]>([]);
 
   const handleAsk = async (queryText?: string) => {
     const q = (queryText ?? question).trim();
     if (!q || loading) return;
 
     setLoading(true);
+    setStreamingAnswer("");
+    setStreamingCitations([]);
     if (!queryText) setQuestion("");
 
+    // Try EventSource for token-by-token streaming
+    let accumulatedText = "";
+    let accumulatedCitations: Citation[] = [];
+
     try {
-      const res: PublicAskResponse = await api.askPublicPortfolio(portfolioId, q);
-      setHistory((prev) => [
-        ...prev,
-        {
-          question: q,
-          answer: res.answer,
-          citations: res.citations ?? [],
-        },
-      ]);
-    } catch (err) {
-      toast.add({
-        title: "Could not answer question",
-        description: err instanceof Error ? err.message : String(err),
-        type: "error",
+      const sseUrl = `/api/public/portfolios/${portfolioId}/ask/stream?question=${encodeURIComponent(q)}`;
+      const es = new EventSource(sseUrl);
+
+      es.addEventListener("citations", (event: MessageEvent) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          accumulatedCitations = Array.isArray(parsed) ? parsed : [];
+          setStreamingCitations(accumulatedCitations);
+        } catch {
+          // ignore parsing error
+        }
       });
-    } finally {
-      setLoading(false);
+
+      es.addEventListener("token", (event: MessageEvent) => {
+        accumulatedText += event.data;
+        setStreamingAnswer(accumulatedText);
+      });
+
+      es.addEventListener("done", () => {
+        es.close();
+        setHistory((prev) => [
+          ...prev,
+          {
+            question: q,
+            answer: accumulatedText,
+            citations: accumulatedCitations,
+          },
+        ]);
+        setStreamingAnswer(null);
+        setStreamingCitations([]);
+        setLoading(false);
+      });
+
+      es.addEventListener("error", async () => {
+        es.close();
+        // If stream failed before any tokens were received, fallback to standard POST
+        if (!accumulatedText) {
+          try {
+            const res: PublicAskResponse = await api.askPublicPortfolio(portfolioId, q);
+            setHistory((prev) => [
+              ...prev,
+              {
+                question: q,
+                answer: res.answer,
+                citations: res.citations ?? [],
+              },
+            ]);
+          } catch (fallbackErr) {
+            toast.add({
+              title: "Could not answer question",
+              description: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+              type: "error",
+            });
+          } finally {
+            setStreamingAnswer(null);
+            setStreamingCitations([]);
+            setLoading(false);
+          }
+        } else {
+          // Keep what we received
+          setHistory((prev) => [
+            ...prev,
+            {
+              question: q,
+              answer: accumulatedText,
+              citations: accumulatedCitations,
+            },
+          ]);
+          setStreamingAnswer(null);
+          setStreamingCitations([]);
+          setLoading(false);
+        }
+      });
+    } catch {
+      // Direct fallback
+      try {
+        const res: PublicAskResponse = await api.askPublicPortfolio(portfolioId, q);
+        setHistory((prev) => [
+          ...prev,
+          {
+            question: q,
+            answer: res.answer,
+            citations: res.citations ?? [],
+          },
+        ]);
+      } catch (err) {
+        toast.add({
+          title: "Could not answer question",
+          description: err instanceof Error ? err.message : String(err),
+          type: "error",
+        });
+      } finally {
+        setStreamingAnswer(null);
+        setStreamingCitations([]);
+        setLoading(false);
+      }
     }
   };
 
@@ -175,7 +262,42 @@ export function RecruiterAskModal({
             ))
           )}
 
-          {loading && (
+          {/* Real-time Streaming AI Answer */}
+          {streamingAnswer !== null && (
+            <div className="flex items-start gap-2.5">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                <Bot className="size-3.5" />
+              </div>
+              <div className="max-w-[88%] space-y-2.5 rounded-2xl rounded-tl-sm border bg-card p-3.5 text-xs text-card-foreground shadow-xs">
+                <p className="whitespace-pre-line leading-relaxed">
+                  {streamingAnswer}
+                  <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-primary animate-pulse" />
+                </p>
+
+                {streamingCitations.length > 0 && (
+                  <div className="border-t pt-2 space-y-1">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Codebase Citations:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {streamingCitations.map((c, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 rounded bg-secondary/80 px-2 py-0.5 font-mono text-[10px]"
+                        >
+                          <FileCode2 className="size-3 text-primary" />
+                          {c.filePath}
+                          {c.startLine ? `:${c.startLine}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {loading && streamingAnswer === null && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground p-2">
               <Loader2 className="size-4 animate-spin text-primary" />
               <span>Analyzing codebase & generating technical response...</span>

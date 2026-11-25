@@ -10,6 +10,7 @@ import {
   Moon,
   Radio,
   Server,
+  ShieldCheck,
   Sun,
   UserRound,
 } from "lucide-react";
@@ -436,6 +437,16 @@ export function SettingsDashboard() {
               <div>
                 <span className="font-medium text-foreground">Events:</span> Just the push event
               </div>
+            </div>
+
+            <div className="pt-2 border-t space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <ShieldCheck className="size-3.5 text-emerald-500" />
+                <span>HMAC-SHA256 Cryptographic Verification</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Configure your repository with a secret key. Incoming requests are verified against GitHub&apos;s <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">X-Hub-Signature-256</code> header to prevent unauthorized sync triggers.
+              </p>
             </div>
           </div>
 

@@ -63,6 +63,11 @@ public class PortfolioController {
         return portfolioService.getPublicProfile(username);
     }
 
+    @GetMapping("/api/public/profiles/{username}/passport")
+    public SkillPassportResponse getSkillPassport(@PathVariable String username) {
+        return portfolioService.getSkillPassport(username);
+    }
+
     @PostMapping("/api/repos/compare")
     public RepoComparisonResponse compareRepositories(
             @RequestBody java.util.List<UUID> repositoryIds
@@ -77,6 +82,14 @@ public class PortfolioController {
             @Valid @RequestBody PublicAskRequest request
     ) {
         return portfolioService.askPublicPortfolio(id, request);
+    }
+
+    @GetMapping(value = "/api/public/portfolios/{id}/ask/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamAskPublicPortfolio(
+            @PathVariable UUID id,
+            @RequestParam String question
+    ) {
+        return portfolioService.streamAskPublicPortfolio(id, question);
     }
 
     @PostMapping("/api/repos/{id}/architecture/simulate")

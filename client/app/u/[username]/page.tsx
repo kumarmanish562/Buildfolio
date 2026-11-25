@@ -18,11 +18,12 @@ import {
 } from "lucide-react";
 
 import { TechStackCategory } from "@/lib/api";
-import { usePublicProfile } from "@/hooks/use-portfolio";
+import { usePublicProfile, useSkillPassport } from "@/hooks/use-portfolio";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { ShareButtons } from "@/components/ui/share-buttons";
 import { RecruiterAskModal } from "@/components/portfolio/recruiter-ask-modal";
+import { SkillPassport } from "@/components/profile/skill-passport";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +35,7 @@ export default function PublicDeveloperProfilePage({
 }) {
   const { username } = use(params);
   const { data: profile, isLoading, isError } = usePublicProfile(username);
+  const { data: passport } = useSkillPassport(username);
   const [copied, setCopied] = useState(false);
 
   const handleCopyProfileUrl = () => {
@@ -206,6 +208,11 @@ export default function PublicDeveloperProfilePage({
                 </div>
               </div>
             </section>
+
+            {/* AI Verified Skill Passport */}
+            {passport && (
+              <SkillPassport passport={passport} username={username} />
+            )}
 
             {/* Aggregated Tech Stack Cloud */}
             {profile.aggregatedTechStack.length > 0 && (

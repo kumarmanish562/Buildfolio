@@ -10,9 +10,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -26,6 +31,39 @@ public class GitHubWebhookService {
     private final IndexingService indexingService;
     private final TelemetryService telemetryService;
     private final ObjectMapper objectMapper;
+
+    @Value("${app.webhook.secret:}")
+    private String defaultWebhookSecret;
+
+    public boolean verifySignature(String payload, String signatureHeader) {
+        if (defaultWebhookSecret == null || defaultWebhookSecret.isBlank()) {
+            return true; // No secret configured, allow payload
+        }
+        if (signatureHeader == null || !signatureHeader.startsWith("sha256=")) {
+            log.warn("Missing or invalid X-Hub-Signature-256 header when secret is configured");
+            return false;
+        }
+
+        try {
+            String expectedHash = signatureHeader.substring("sha256=".length()).trim();
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secretKey = new SecretKeySpec(defaultWebhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(secretKey);
+            byte[] computedHash = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+
+            StringBuilder hex = new StringBuilder();
+            for (byte b : computedHash) {
+                String h = Integer.toHexString(0xff & b);
+                if (h.length() == 1) hex.append('0');
+                hex.append(h);
+            }
+
+            return MessageDigest.isEqual(hex.toString().getBytes(StandardCharsets.UTF_8), expectedHash.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            log.error("Failed to verify HMAC signature", e);
+            return false;
+        }
+    }
 
     public GitHubWebhookResponse processPushEvent(String payloadJson) {
         try {

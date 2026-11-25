@@ -386,6 +386,28 @@ export const api = {
     apiFetch<DependencyGraphResponse>(
       `/api/public/portfolios/${portfolioId}/dependency-graph`
     ),
+
+  getSkillPassport: (username: string) =>
+    apiFetch<SkillPassport>(`/api/public/profiles/${username}/passport`),
+};
+
+export type VerifiedSkill = {
+  name: string;
+  category: string;
+  proficiencyScore: number;
+  badgeLevel: string;
+  description: string;
+  evidenceCitations: string[];
+};
+
+export type SkillPassport = {
+  username: string;
+  developerTitle: string;
+  overallScore: number;
+  totalReposAnalyzed: number;
+  verifiedSkillsCount: number;
+  skills: VerifiedSkill[];
+  architecturalHighlights: string[];
 };
 
 export type PublicAskResponse = {

@@ -16,8 +16,18 @@ public class GitHubWebhookController {
     @PostMapping("/github")
     public ResponseEntity<GitHubWebhookResponse> handleGitHubWebhook(
             @RequestHeader(value = "X-GitHub-Event", defaultValue = "push") String eventType,
+            @RequestHeader(value = "X-Hub-Signature-256", required = false) String signatureHeader,
             @RequestBody String payload
     ) {
+        if (!gitHubWebhookService.verifySignature(payload, signatureHeader)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(new GitHubWebhookResponse(
+                    "UNAUTHORIZED",
+                    "unknown",
+                    0,
+                    "Invalid HMAC-SHA256 signature in X-Hub-Signature-256 header"
+            ));
+        }
+
         if (!"push".equalsIgnoreCase(eventType)) {
             return ResponseEntity.ok(new GitHubWebhookResponse(
                     "IGNORED",

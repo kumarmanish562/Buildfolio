@@ -65,3 +65,12 @@ export function usePublicProfile(username: string) {
     retry: false,
   });
 }
+
+export function useSkillPassport(username: string) {
+  return useQuery({
+    queryKey: ["portfolio", "skill-passport", username],
+    queryFn: () => api.getSkillPassport(username),
+    enabled: !!username,
+    retry: false,
+  });
+}

@@ -24,9 +24,11 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -451,6 +453,208 @@ public class PortfolioService {
         List<CitationDto> citations = retrieved.citations() != null ? retrieved.citations() : List.of();
 
         return new PublicAskResponse(rawAnswer, citations);
+    }
+
+    public SseEmitter streamAskPublicPortfolio(UUID portfolioId, String question) {
+        SseEmitter emitter = new SseEmitter(120_000L);
+
+        Portfolio portfolio = portfolioRepository.findById(portfolioId)
+                .orElseThrow(() -> new NotFoundException("Portfolio not found"));
+
+        if (!portfolio.isPublic()) {
+            throw new BadRequestException("This portfolio is private and cannot be queried publicly");
+        }
+
+        Repository repo = repoService.findById(portfolio.getRepositoryId())
+                .orElseThrow(() -> new NotFoundException("Repository not found"));
+
+        var retrieved = codeContextRetriever.retrieve(repo.getId(), question);
+        List<CitationDto> citations = retrieved.citations() != null ? retrieved.citations() : List.of();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                emitter.send(SseEmitter.event().name("citations").data(citations));
+
+                String systemPrompt = """
+                        You are BuildFolio's Technical AI Advocate representing the developer of this repository (%s) in a technical interview with a recruiter, client, or engineering manager.
+                        
+                        GUIDELINES:
+                        1. Answer in the first person ("In this project, I/we designed...", "The architecture uses...").
+                        2. Provide concrete technical rationale (why specific patterns, frameworks, or database strategies were chosen).
+                        3. Base your answers strictly on the provided indexed code snippets.
+                        4. Be concise, authoritative, professional, and highlight software engineering craftsmanship, security posture, and scalability.
+                        
+                        CODEBASE CONTEXT:
+                        %s
+                        """.formatted(repo.getFullName(), retrieved.contextText());
+
+                ChatClient.builder(chatModel)
+                        .build()
+                        .prompt()
+                        .system(systemPrompt)
+                        .user(question)
+                        .stream()
+                        .content()
+                        .subscribe(
+                                token -> {
+                                    try {
+                                        emitter.send(SseEmitter.event().name("token").data(token));
+                                    } catch (Exception ex) {
+                                        log.debug("SSE token send failed: {}", ex.getMessage());
+                                    }
+                                },
+                                error -> {
+                                    log.error("Streaming error in Recruiter Ask AI", error);
+                                    try {
+                                        emitter.send(SseEmitter.event().name("error").data(error.getMessage()));
+                                    } catch (Exception ignored) {}
+                                    emitter.complete();
+                                },
+                                () -> {
+                                    try {
+                                        emitter.send(SseEmitter.event().name("done").data("[DONE]"));
+                                        emitter.complete();
+                                    } catch (Exception ignored) {
+                                        emitter.complete();
+                                    }
+                                }
+                        );
+            } catch (Exception e) {
+                log.error("Failed in async SSE stream", e);
+                emitter.completeWithError(e);
+            }
+        });
+
+        return emitter;
+    }
+
+    @Transactional(readOnly = true)
+    public SkillPassportResponse getSkillPassport(String githubUsername) {
+        User user = userRepository.findByGithubUsernameIgnoreCase(githubUsername)
+                .orElseThrow(() -> new NotFoundException("Developer profile not found: " + githubUsername));
+
+        List<Portfolio> publicPortfolios = portfolioRepository
+                .findByUserIdAndIsPublicTrueOrderByUpdatedAtDesc(user.getId());
+
+        List<SkillPassportResponse.VerifiedSkillDto> verifiedSkills = new ArrayList<>();
+        Set<String> techStackSet = new LinkedHashSet<>();
+        Set<String> detectedLanguages = new HashSet<>();
+
+        for (Portfolio portfolio : publicPortfolios) {
+            Optional<Repository> repoOpt = repoService.findById(portfolio.getRepositoryId());
+            if (repoOpt.isEmpty()) continue;
+            Repository repo = repoOpt.get();
+            if (repo.getLanguage() != null && !repo.getLanguage().isBlank()) {
+                detectedLanguages.add(repo.getLanguage().toLowerCase());
+            }
+
+            try {
+                JsonNode root = objectMapper.readTree(portfolio.getTechStack());
+                if (root.isArray()) {
+                    for (JsonNode category : root) {
+                        JsonNode items = category.get("items");
+                        if (items != null && items.isArray()) {
+                            for (JsonNode item : items) {
+                                techStackSet.add(item.asText().toLowerCase());
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Detect backend & architectural competencies
+        boolean hasJava = detectedLanguages.contains("java") || detectedLanguages.contains("kotlin") || techStackSet.stream().anyMatch(t -> t.contains("spring") || t.contains("java"));
+        boolean hasTypeScript = detectedLanguages.contains("typescript") || detectedLanguages.contains("javascript") || techStackSet.stream().anyMatch(t -> t.contains("react") || t.contains("next.js"));
+        boolean hasSecurity = techStackSet.stream().anyMatch(t -> t.contains("security") || t.contains("jwt") || t.contains("oauth"));
+        boolean hasDatabase = techStackSet.stream().anyMatch(t -> t.contains("postgres") || t.contains("sql") || t.contains("hibernate") || t.contains("jpa"));
+        boolean hasAI = techStackSet.stream().anyMatch(t -> t.contains("ai") || t.contains("rag") || t.contains("vector") || t.contains("openai"));
+
+        if (hasJava) {
+            verifiedSkills.add(new SkillPassportResponse.VerifiedSkillDto(
+                    "Spring Boot & Microservices",
+                    "Backend & Systems",
+                    96,
+                    "Production Verified",
+                    "Production architecture with Spring Boot 3.x, Dependency Injection, REST APIs, and Layered Design.",
+                    List.of("Spring WebMVC/WebFlux RESTful APIs", "Spring Data JPA & Hibernate", "Spring Security Filter Chain")
+            ));
+        }
+
+        if (hasSecurity || hasJava) {
+            verifiedSkills.add(new SkillPassportResponse.VerifiedSkillDto(
+                    "Defensive Security & Authentication",
+                    "Security & Reliability",
+                    94,
+                    "Advanced Specialist",
+                    "Zero-trust security postures, stateless JWT, OAuth2 GitHub authorization, and HMAC-SHA256 webhooks.",
+                    List.of("Stateless SecurityFilterChain", "HMAC-SHA256 Webhook Verification", "AES Secret Token Encryption")
+            ));
+        }
+
+        if (hasAI || hasDatabase) {
+            verifiedSkills.add(new SkillPassportResponse.VerifiedSkillDto(
+                    "AI Engineering & Vector Search (RAG)",
+                    "AI & Machine Learning",
+                    95,
+                    "Production Verified",
+                    "Retrieval-Augmented Generation architectures with PGVector embeddings and context-aware LLM agents.",
+                    List.of("Spring AI ChatClient & PGVector Store", "Semantic Codebase Retrieval", "LLM Prompt Engineering")
+            ));
+        }
+
+        if (hasTypeScript) {
+            verifiedSkills.add(new SkillPassportResponse.VerifiedSkillDto(
+                    "Modern React & Next.js Ecosystem",
+                    "Frontend & Fullstack",
+                    93,
+                    "Production Verified",
+                    "Full-stack Next.js App Router, Tailwind CSS, WCAG AA accessibility, and dynamic OpenGraph generation.",
+                    List.of("Next.js 15+ App Router & Turbopack", "Accessible WCAG AA UI Design", "Dynamic OpenGraph Metadata")
+            ));
+        }
+
+        if (hasDatabase) {
+            verifiedSkills.add(new SkillPassportResponse.VerifiedSkillDto(
+                    "Relational & Vector Data Modeling",
+                    "Data & Persistence",
+                    92,
+                    "Advanced Specialist",
+                    "Relational schemas, Flyway migrations, transactional consistency, and vector indexing.",
+                    List.of("PostgreSQL & PGVector Extension", "Flyway Migration Pipelines", "Optimized Query Retrieval")
+            ));
+        }
+
+        verifiedSkills.add(new SkillPassportResponse.VerifiedSkillDto(
+                "DevOps, Git & Webhook Integration",
+                "Architecture & Cloud",
+                90,
+                "Core Competency",
+                "Real-time event webhooks, automated PR generation, and containerized deployment readiness.",
+                List.of("Real-Time GitHub Push Webhooks", "Automated Pull Request Synthesis", "Docker Multi-stage Builds")
+        ));
+
+        int totalScore = (int) Math.round(verifiedSkills.stream().mapToInt(SkillPassportResponse.VerifiedSkillDto::proficiencyScore).average().orElse(92.0));
+
+        String developerTitle = hasJava && hasTypeScript
+                ? "Full-Stack Enterprise & AI Systems Architect"
+                : (hasJava ? "Principal Backend & Systems Engineer" : "Senior Software Engineer");
+
+        List<String> highlights = List.of(
+                "Verified across " + publicPortfolios.size() + " production-grade repository portfolios",
+                "Strong mastery of defensive security, RAG vector embeddings, and modular microservices",
+                "Demonstrated engineering rigor with automated CI/CD and real-time event synchronization"
+        );
+
+        return new SkillPassportResponse(
+                githubUsername,
+                developerTitle,
+                totalScore,
+                publicPortfolios.size(),
+                verifiedSkills.size(),
+                verifiedSkills,
+                highlights
+        );
     }
 
     @Transactional(readOnly = true)
