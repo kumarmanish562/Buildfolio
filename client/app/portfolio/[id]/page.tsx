@@ -22,7 +22,7 @@ export default function PublicPortfolioPage({
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Public Header */}
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md print:hidden">
         <div className="mx-auto flex max-w-5xl items-center justify-between p-4">
           <Link href="/" className="flex items-center gap-2">
             <span className="font-heading text-lg font-bold tracking-tight text-primary">

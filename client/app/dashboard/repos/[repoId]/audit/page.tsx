@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/toast";
 
 export default function SecurityAuditPage({
   params,
@@ -53,8 +54,17 @@ export default function SecurityAuditPage({
         remediation: vuln.remediation,
       });
       setFixResults((prev) => ({ ...prev, [index]: res }));
+      toast.add({
+        title: "Security Fix PR Created",
+        description: `Opened PR #${res.pullRequestNumber} on ${res.branchName}.`,
+        type: "success",
+      });
     } catch (err) {
-      alert("Failed to generate fix PR: " + (err instanceof Error ? err.message : String(err)));
+      toast.add({
+        title: "Failed to generate fix PR",
+        description: err instanceof Error ? err.message : String(err),
+        type: "error",
+      });
     } finally {
       setActiveFixIndex(null);
     }

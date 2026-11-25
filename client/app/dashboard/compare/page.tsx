@@ -20,6 +20,16 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 export default function CompareRepositoriesPage() {
   const { data: repos, isLoading } = useRepos();
@@ -140,6 +150,83 @@ export default function CompareRepositoriesPage() {
               <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                 {comparison.crossArchitectureSummary}
               </p>
+            </div>
+
+            {/* Visual Charts: Security Score & Codebase Footprint */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="rounded-2xl border bg-card p-6">
+                <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
+                  <Shield className="size-4 text-emerald-500" />
+                  <span>Security Health Score (0–100)</span>
+                </div>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={comparison.repositories.map((r) => ({
+                        name: r.name,
+                        score: r.securityScore ?? 0,
+                      }))}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                      <RechartsTooltip
+                        contentStyle={{
+                          borderRadius: "0.75rem",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Bar
+                        dataKey="score"
+                        name="Security Score"
+                        fill="#10b981"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border bg-card p-6">
+                <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
+                  <Layers className="size-4 text-primary" />
+                  <span>Codebase Footprint (Files vs. Vector Chunks)</span>
+                </div>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={comparison.repositories.map((r) => ({
+                        name: r.name,
+                        files: r.filesCount,
+                        chunks: r.chunkCount,
+                      }))}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <RechartsTooltip
+                        contentStyle={{
+                          borderRadius: "0.75rem",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: "12px" }} />
+                      <Bar
+                        dataKey="files"
+                        name="Indexed Files"
+                        fill="#6366f1"
+                        radius={[6, 6, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="chunks"
+                        name="Vector Chunks"
+                        fill="#f59e0b"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
 
             {/* Side-by-side Matrix Table */}

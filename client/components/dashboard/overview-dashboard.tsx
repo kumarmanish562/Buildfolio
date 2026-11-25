@@ -27,6 +27,22 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useRepos } from "@/hooks/use-repos";
+import {
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+} from "recharts";
+
+const LANG_COLORS = [
+  "#6366f1",
+  "#10b981",
+  "#f59e0b",
+  "#ec4899",
+  "#06b6d4",
+  "#8b5cf6",
+];
 
 export function OverviewDashboard() {
   const reposQuery = useRepos();
@@ -64,6 +80,17 @@ export function OverviewDashboard() {
         sum + repo.chunkCount,
       0
     );
+
+  const languageData = Object.entries(
+    repos.reduce<Record<string, number>>((acc, repo) => {
+      const lang = repo.language || "Other";
+      acc[lang] = (acc[lang] ?? 0) + 1;
+      return acc;
+    }, {})
+  )
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
 
   const recentRepos =
     [...repos]
@@ -232,6 +259,71 @@ export function OverviewDashboard() {
         {/* Workspace */}
 
         <section className="space-y-4">
+          {languageData.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  Language Distribution
+                </CardTitle>
+                <CardDescription>
+                  Tech breakdown across {repos.length} repositories
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={languageData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={48}
+                        outerRadius={76}
+                        paddingAngle={3}
+                      >
+                        {languageData.map((_, idx) => (
+                          <Cell
+                            key={idx}
+                            fill={LANG_COLORS[idx % LANG_COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        contentStyle={{
+                          borderRadius: "0.75rem",
+                          fontSize: "12px",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {languageData.map((entry, idx) => (
+                    <div
+                      key={entry.name}
+                      className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs"
+                    >
+                      <span
+                        className="size-2.5 rounded-full"
+                        style={{
+                          backgroundColor:
+                            LANG_COLORS[idx % LANG_COLORS.length],
+                        }}
+                      />
+                      <span className="font-medium">{entry.name}</span>
+                      <span className="text-muted-foreground">
+                        ({entry.value})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div>
             <h2 className="font-heading text-lg font-semibold">
               Workspace health

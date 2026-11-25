@@ -34,6 +34,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import { MermaidDiagramViewer } from "@/components/portfolio/mermaid-diagram-viewer";
+import { toast } from "@/components/ui/toast";
 
 export function PortfolioShowcase({
   repoId,
@@ -63,6 +64,11 @@ export function PortfolioShowcase({
     const url = `${window.location.origin}/portfolio/${portfolio.id}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
+    toast.add({
+      title: "Showcase link copied",
+      description: "Public portfolio URL copied to clipboard.",
+      type: "success",
+    });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -71,8 +77,17 @@ export function PortfolioShowcase({
     try {
       const res = await exportPrMutation.mutateAsync();
       setPrResultUrl(res.pullRequestUrl);
+      toast.add({
+        title: "Pull Request opened",
+        description: `Created PR #${res.pullRequestNumber} on branch ${res.branchName}.`,
+        type: "success",
+      });
     } catch (err) {
-      alert("Failed to export PR: " + (err instanceof Error ? err.message : String(err)));
+      toast.add({
+        title: "Failed to export PR",
+        description: err instanceof Error ? err.message : String(err),
+        type: "error",
+      });
     }
   };
 
@@ -204,9 +219,9 @@ ${featuresMarkdown}
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10 p-6 md:p-10">
+    <div className="mx-auto max-w-5xl space-y-10 p-6 md:p-10 print:p-0 print:space-y-6">
       {/* Top Header Navigation */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
         {!isPublicView && repoId && (
           <Link
             href={`/dashboard/repos/${repoId}`}
