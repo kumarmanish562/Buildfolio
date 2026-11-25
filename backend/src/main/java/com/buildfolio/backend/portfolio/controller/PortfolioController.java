@@ -3,6 +3,7 @@ package com.buildfolio.backend.portfolio.controller;
 import com.buildfolio.backend.common.security.CurrentUser;
 import com.buildfolio.backend.portfolio.dto.CreatePullRequestResponse;
 import com.buildfolio.backend.portfolio.dto.PortfolioResponse;
+import com.buildfolio.backend.portfolio.dto.PublicProfileResponse;
 import com.buildfolio.backend.portfolio.dto.UpdatePortfolioVisibilityRequest;
 import com.buildfolio.backend.portfolio.service.PortfolioService;
 import jakarta.validation.Valid;
@@ -58,6 +59,11 @@ public class PortfolioController {
     @GetMapping("/api/public/portfolios/{id}")
     public PortfolioResponse getPublic(@PathVariable UUID id) {
         return portfolioService.getPublicPortfolio(id);
+    }
+
+    @GetMapping("/api/public/profiles/{username}")
+    public PublicProfileResponse getPublicProfile(@PathVariable String username) {
+        return portfolioService.getPublicProfile(username);
     }
 
     @PostMapping("/api/repos/compare")

@@ -2,6 +2,8 @@ package com.buildfolio.backend.portfolio.service;
 
 import com.buildfolio.backend.audit.entity.SecurityAudit;
 import com.buildfolio.backend.audit.repository.SecurityAuditRepository;
+import com.buildfolio.backend.auth.entity.User;
+import com.buildfolio.backend.auth.repository.UserRepository;
 import com.buildfolio.backend.auth.service.UserService;
 import com.buildfolio.backend.chat.service.ai.CodeContextRetriever;
 import com.buildfolio.backend.common.exception.BadRequestException;
@@ -9,6 +11,7 @@ import com.buildfolio.backend.common.exception.NotFoundException;
 import com.buildfolio.backend.indexing.service.github.GithubApiClient;
 import com.buildfolio.backend.portfolio.dto.CreatePullRequestResponse;
 import com.buildfolio.backend.portfolio.dto.PortfolioResponse;
+import com.buildfolio.backend.portfolio.dto.PublicProfileResponse;
 import com.buildfolio.backend.portfolio.dto.RepoComparisonItem;
 import com.buildfolio.backend.portfolio.dto.RepoComparisonResponse;
 import com.buildfolio.backend.portfolio.entity.Portfolio;
@@ -35,6 +38,7 @@ public class PortfolioService {
 
     private final PortfolioRepository portfolioRepository;
     private final SecurityAuditRepository securityAuditRepository;
+    private final UserRepository userRepository;
     private final RepoService repoService;
     private final UserService userService;
     private final GithubApiClient githubApiClient;
@@ -149,6 +153,77 @@ public class PortfolioService {
         Repository repo = repoService.findById(portfolio.getRepositoryId())
                 .orElseThrow(() -> new NotFoundException("Associated repository not found"));
         return toResponse(portfolio, repo);
+    }
+
+    @Transactional(readOnly = true)
+    public PublicProfileResponse getPublicProfile(String githubUsername) {
+        User user = userRepository.findByGithubUsernameIgnoreCase(githubUsername)
+                .orElseThrow(() -> new NotFoundException("Developer profile not found: " + githubUsername));
+
+        List<Portfolio> publicPortfolios = portfolioRepository
+                .findByUserIdAndIsPublicTrueOrderByUpdatedAtDesc(user.getId());
+
+        List<PortfolioResponse> portfolioResponses = new ArrayList<>();
+        Set<String> techStackSet = new LinkedHashSet<>();
+        int securityScoreSum = 0;
+        int securityAuditCount = 0;
+
+        for (Portfolio portfolio : publicPortfolios) {
+            Optional<Repository> repoOpt = repoService.findById(portfolio.getRepositoryId());
+            if (repoOpt.isEmpty()) {
+                continue;
+            }
+            Repository repo = repoOpt.get();
+            portfolioResponses.add(toResponse(portfolio, repo));
+
+            // Aggregate tech stack items
+            try {
+                JsonNode root = objectMapper.readTree(portfolio.getTechStack());
+                if (root.isArray()) {
+                    for (JsonNode category : root) {
+                        JsonNode items = category.get("items");
+                        if (items != null && items.isArray()) {
+                            for (JsonNode item : items) {
+                                String label = item.asText().trim();
+                                if (!label.isEmpty()) {
+                                    techStackSet.add(label);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                if (repo.getLanguage() != null && !repo.getLanguage().isBlank()) {
+                    techStackSet.add(repo.getLanguage());
+                }
+            }
+
+            // Aggregate security health score
+            Optional<SecurityAudit> auditOpt = securityAuditRepository
+                    .findTopByRepositoryIdOrderByCreatedAtDesc(repo.getId());
+            if (auditOpt.isPresent()) {
+                securityScoreSum += auditOpt.get().getOverallScore();
+                securityAuditCount++;
+            }
+        }
+
+        Integer averageSecurityScore = securityAuditCount > 0
+                ? Math.round((float) securityScoreSum / securityAuditCount)
+                : null;
+
+        List<String> aggregatedTechStack = techStackSet.stream().limit(30).toList();
+
+        return new PublicProfileResponse(
+                user.getGithubUsername(),
+                user.getDisplayName(),
+                user.getAvatarUrl(),
+                "https://github.com/" + user.getGithubUsername(),
+                user.getCreatedAt(),
+                portfolioResponses.size(),
+                averageSecurityScore,
+                aggregatedTechStack,
+                portfolioResponses
+        );
     }
 
     @Transactional

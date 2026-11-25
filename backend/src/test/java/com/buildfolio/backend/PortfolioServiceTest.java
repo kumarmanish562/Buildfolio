@@ -1,6 +1,7 @@
 package com.buildfolio.backend;
 
 import com.buildfolio.backend.audit.repository.SecurityAuditRepository;
+import com.buildfolio.backend.auth.repository.UserRepository;
 import com.buildfolio.backend.auth.service.UserService;
 import com.buildfolio.backend.common.exception.BadRequestException;
 import com.buildfolio.backend.common.exception.NotFoundException;
@@ -39,6 +40,9 @@ class PortfolioServiceTest {
     private SecurityAuditRepository securityAuditRepository;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private RepoService repoService;
 
     @Mock
@@ -62,6 +66,7 @@ class PortfolioServiceTest {
         portfolioService = new PortfolioService(
                 portfolioRepository,
                 securityAuditRepository,
+                userRepository,
                 repoService,
                 userService,
                 githubApiClient,

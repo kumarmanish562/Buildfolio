@@ -57,6 +57,9 @@ export const queryKeys = {
 
     public: (portfolioId: string) =>
       [...queryKeys.portfolio.all, "public", portfolioId] as const,
+
+    profile: (username: string) =>
+      [...queryKeys.portfolio.all, "profile", username] as const,
   },
 
   audit: {

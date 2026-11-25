@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { ExternalLink, LogOut, Settings } from "lucide-react";
 
 import { BuildfolioIcon } from "@/components/icons/buildfolio-logo";
 
@@ -298,8 +298,20 @@ export function AppShell({
                   <DropdownMenuSeparator />
 
                   {/* -------------------------------------------------
-                      SETTINGS
+                      PUBLIC PROFILE & SETTINGS
                      ------------------------------------------------- */}
+
+                  {user?.githubUsername && (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        router.push(`/u/${user.githubUsername}`)
+                      }
+                    >
+                      <ExternalLink />
+
+                      <span>Public Profile</span>
+                    </DropdownMenuItem>
+                  )}
 
                   <DropdownMenuItem
                     onClick={() =>

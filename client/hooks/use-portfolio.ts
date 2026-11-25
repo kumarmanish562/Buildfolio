@@ -56,3 +56,12 @@ export function usePublicPortfolio(portfolioId: string) {
     retry: false,
   });
 }
+
+export function usePublicProfile(username: string) {
+  return useQuery({
+    queryKey: queryKeys.portfolio.profile(username),
+    queryFn: () => api.getPublicProfile(username),
+    enabled: !!username,
+    retry: false,
+  });
+}

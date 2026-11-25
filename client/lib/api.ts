@@ -92,6 +92,18 @@ export type Portfolio = {
   updatedAt: string;
 };
 
+export type PublicProfile = {
+  githubUsername: string;
+  displayName: string;
+  avatarUrl: string | null;
+  githubUrl: string;
+  memberSince: string;
+  publicProjectCount: number;
+  averageSecurityScore: number | null;
+  aggregatedTechStack: string[];
+  portfolios: Portfolio[];
+};
+
 export type CreatePullRequestResponse = {
   pullRequestUrl: string;
   pullRequestNumber: number;
@@ -304,6 +316,11 @@ export const api = {
 
   getPublicPortfolio: (portfolioId: string) =>
     apiFetch<Portfolio>(`/api/public/portfolios/${portfolioId}`),
+
+  getPublicProfile: (username: string) =>
+    apiFetch<PublicProfile>(
+      `/api/public/profiles/${encodeURIComponent(username)}`
+    ),
 
   /* ================= SECURITY & AUDIT ================= */
 
