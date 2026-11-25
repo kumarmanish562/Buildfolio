@@ -24,6 +24,8 @@ import { ModeToggle } from "@/components/ui/mode-toggle";
 import { ShareButtons } from "@/components/ui/share-buttons";
 import { RecruiterAskModal } from "@/components/portfolio/recruiter-ask-modal";
 import { SkillPassport } from "@/components/profile/skill-passport";
+import { MicroservicesTopology } from "@/components/profile/microservices-topology";
+import { ResumeExportDialog } from "@/components/profile/resume-export-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -186,6 +188,7 @@ export default function PublicDeveloperProfilePage({
                         </>
                       )}
                     </Button>
+                    <ResumeExportDialog profile={profile} passport={passport} />
                     <ShareButtons title={`${profile.displayName}'s BuildFolio`} />
                   </div>
 
@@ -213,6 +216,9 @@ export default function PublicDeveloperProfilePage({
             {passport && (
               <SkillPassport passport={passport} username={username} />
             )}
+
+            {/* Distributed Multi-Repo Microservice Topology */}
+            <MicroservicesTopology username={username} />
 
             {/* Aggregated Tech Stack Cloud */}
             {profile.aggregatedTechStack.length > 0 && (

@@ -111,4 +111,14 @@ public class PortfolioController {
     public DependencyGraphResponse getPublicDependencyGraph(@PathVariable UUID id) {
         return portfolioService.getPublicDependencyGraph(id);
     }
+
+    @GetMapping("/api/public/portfolios/{id}/api-spec")
+    public ApiExplorerResponse getApiExplorer(@PathVariable UUID id) {
+        return portfolioService.getApiExplorer(id);
+    }
+
+    @GetMapping("/api/public/profiles/{username}/topology")
+    public MicroserviceTopologyResponse getMicroserviceTopology(@PathVariable String username) {
+        return portfolioService.getMicroserviceTopology(username);
+    }
 }

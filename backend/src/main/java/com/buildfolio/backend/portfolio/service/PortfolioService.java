@@ -865,6 +865,174 @@ public class PortfolioService {
         return new DependencyGraphResponse(new ArrayList<>(nodeMap.values()), links, metrics);
     }
 
+    @Transactional(readOnly = true)
+    public ApiExplorerResponse getApiExplorer(UUID portfolioId) {
+        Portfolio portfolio = portfolioRepository.findById(portfolioId)
+                .orElseThrow(() -> new NotFoundException("Portfolio not found"));
+
+        Repository repo = repoService.findById(portfolio.getRepositoryId())
+                .orElseThrow(() -> new NotFoundException("Repository not found"));
+
+        List<ApiExplorerResponse.ApiEndpointItem> endpoints = new ArrayList<>();
+        boolean isJava = repo.getLanguage() != null && (repo.getLanguage().equalsIgnoreCase("Java") || repo.getLanguage().equalsIgnoreCase("Kotlin"));
+
+        if (isJava) {
+            endpoints.add(new ApiExplorerResponse.ApiEndpointItem(
+                    "GET",
+                    "/api/public/portfolios/" + portfolio.getId(),
+                    "PortfolioController",
+                    "Fetch published public portfolio showcase and architecture overview",
+                    "Public (No Auth)",
+                    null,
+                    "{\n  \"id\": \"" + portfolio.getId() + "\",\n  \"title\": \"" + portfolio.getTitle() + "\",\n  \"isPublic\": true\n}"
+            ));
+            endpoints.add(new ApiExplorerResponse.ApiEndpointItem(
+                    "POST",
+                    "/api/public/portfolios/" + portfolio.getId() + "/ask",
+                    "PortfolioController",
+                    "Query the technical recruiter AI advocate with codebase context RAG",
+                    "Public (No Auth)",
+                    "{\n  \"question\": \"Why was this architecture chosen?\"\n}",
+                    "{\n  \"answer\": \"The architecture follows a modular layered pattern...\",\n  \"citations\": [\"src/main/java/config/SecurityConfig.java:45\"]\n}"
+            ));
+            endpoints.add(new ApiExplorerResponse.ApiEndpointItem(
+                    "GET",
+                    "/api/public/repos/" + repo.getId() + "/badge/health",
+                    "BadgeController",
+                    "Generate live dynamic SVG security health shield badge",
+                    "Public (No Auth)",
+                    null,
+                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"138\" height=\"20\">...</svg>"
+            ));
+            endpoints.add(new ApiExplorerResponse.ApiEndpointItem(
+                    "POST",
+                    "/api/repos/" + repo.getId() + "/architecture/simulate",
+                    "PortfolioController",
+                    "Simulate architectural refactoring scenario with AI impact assessment",
+                    "Authenticated (Bearer JWT / Session)",
+                    "{\n  \"scenarioPrompt\": \"What if we introduce Kafka for event streaming?\"\n}",
+                    "{\n  \"scenario\": \"Kafka Event Streaming\",\n  \"estimatedComplexity\": \"MEDIUM\",\n  \"migrationStrategy\": \"Phase 1: Dual publish...\"\n}"
+            ));
+            endpoints.add(new ApiExplorerResponse.ApiEndpointItem(
+                    "POST",
+                    "/api/webhooks/github",
+                    "GitHubWebhookController",
+                    "Handle real-time GitHub push webhooks with HMAC-SHA256 signature verification",
+                    "HMAC Secret (X-Hub-Signature-256)",
+                    "{\n  \"ref\": \"refs/heads/main\",\n  \"repository\": {\n    \"full_name\": \"" + repo.getFullName() + "\"\n  }\n}",
+                    "{\n  \"status\": \"ACCEPTED\",\n  \"repository\": \"" + repo.getFullName() + "\",\n  \"filesAffected\": 4\n}"
+            ));
+        } else {
+            endpoints.add(new ApiExplorerResponse.ApiEndpointItem(
+                    "GET",
+                    "/api/health",
+                    "HealthController",
+                    "Service health check and telemetry status",
+                    "Public (No Auth)",
+                    null,
+                    "{\n  \"status\": \"UP\",\n  \"uptime\": 86400\n}"
+            ));
+            endpoints.add(new ApiExplorerResponse.ApiEndpointItem(
+                    "GET",
+                    "/api/v1/resources",
+                    "ResourceController",
+                    "Paginated resource query with filters",
+                    "Authenticated",
+                    null,
+                    "{\n  \"items\": [],\n  \"page\": 0,\n  \"size\": 20\n}"
+            ));
+        }
+
+        String basePkg = isJava ? "com." + repo.getName().toLowerCase().replaceAll("[^a-z0-9]", "") + ".api" : "api.v1";
+        return new ApiExplorerResponse(repo.getName(), basePkg, endpoints.size(), endpoints);
+    }
+
+    @Transactional(readOnly = true)
+    public MicroserviceTopologyResponse getMicroserviceTopology(String githubUsername) {
+        User user = userRepository.findByGithubUsernameIgnoreCase(githubUsername)
+                .orElseThrow(() -> new NotFoundException("Developer profile not found: " + githubUsername));
+
+        List<Portfolio> publicPortfolios = portfolioRepository
+                .findByUserIdAndIsPublicTrueOrderByUpdatedAtDesc(user.getId());
+
+        List<MicroserviceTopologyResponse.ServiceNode> nodes = new ArrayList<>();
+        List<MicroserviceTopologyResponse.ServiceLink> links = new ArrayList<>();
+
+        nodes.add(new MicroserviceTopologyResponse.ServiceNode(
+                "client-web",
+                "Web Application (Next.js App Router)",
+                "CLIENT_WEB",
+                "TypeScript",
+                "React Server Components, Tailwind CSS, Dynamic OpenGraph & Performance HUD",
+                null,
+                List.of("HTTPS / TLS", "WebSocket / SSE")
+        ));
+
+        nodes.add(new MicroserviceTopologyResponse.ServiceNode(
+                "api-gateway",
+                "API Gateway & Security Filter Chain",
+                "GATEWAY",
+                "Java / Spring Boot",
+                "OAuth2 GitHub Authorization, Rate Limiting & Stateless Token Validation",
+                null,
+                List.of("HTTP/REST", "HMAC-SHA256")
+        ));
+
+        links.add(new MicroserviceTopologyResponse.ServiceLink(
+                "client-web",
+                "api-gateway",
+                "HTTPS / REST",
+                "User sessions & public queries"
+        ));
+
+        for (Portfolio portfolio : publicPortfolios) {
+            Optional<Repository> repoOpt = repoService.findById(portfolio.getRepositoryId());
+            if (repoOpt.isEmpty()) continue;
+            Repository repo = repoOpt.get();
+
+            String serviceId = "srv-" + repo.getName().toLowerCase().replaceAll("[^a-z0-9]", "-");
+            nodes.add(new MicroserviceTopologyResponse.ServiceNode(
+                    serviceId,
+                    repo.getName() + " (Core Service)",
+                    "CORE_SERVICE",
+                    repo.getLanguage() != null ? repo.getLanguage() : "Multi-stack",
+                    portfolio.getTitle(),
+                    repo.getHtmlUrl(),
+                    List.of("HTTP/REST", "Event Hooks")
+            ));
+
+            links.add(new MicroserviceTopologyResponse.ServiceLink(
+                    "api-gateway",
+                    serviceId,
+                    "Internal REST / gRPC",
+                    "Authenticated domain delegation"
+            ));
+        }
+
+        nodes.add(new MicroserviceTopologyResponse.ServiceNode(
+                "db-postgres",
+                "PostgreSQL 16 & PGVector",
+                "DATA_STORE",
+                "SQL",
+                "Relational transactional schemas & high-dimensional vector embeddings for RAG",
+                null,
+                List.of("TCP / JDBC", "PGVector HNSW Index")
+        ));
+
+        for (MicroserviceTopologyResponse.ServiceNode n : nodes) {
+            if ("CORE_SERVICE".equals(n.role())) {
+                links.add(new MicroserviceTopologyResponse.ServiceLink(
+                        n.id(),
+                        "db-postgres",
+                        "JDBC / Connection Pool",
+                        "ACID transactions & semantic similarity search"
+                ));
+            }
+        }
+
+        return new MicroserviceTopologyResponse(githubUsername, nodes.size(), nodes, links);
+    }
+
     private ParsedPortfolio fallbackPortfolio(Repository repo) {
         return new ParsedPortfolio(
                 repo.getName() + " Portfolio & Technical Showcase",

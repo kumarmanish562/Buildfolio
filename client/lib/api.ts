@@ -389,6 +389,53 @@ export const api = {
 
   getSkillPassport: (username: string) =>
     apiFetch<SkillPassport>(`/api/public/profiles/${username}/passport`),
+
+  getApiExplorer: (portfolioId: string) =>
+    apiFetch<ApiExplorerResponse>(`/api/public/portfolios/${portfolioId}/api-spec`),
+
+  getMicroserviceTopology: (username: string) =>
+    apiFetch<MicroserviceTopologyResponse>(`/api/public/profiles/${username}/topology`),
+};
+
+export type ApiEndpointItem = {
+  method: string;
+  path: string;
+  controller: string;
+  summary: string;
+  authRequirement: string;
+  requestBodyJson: string | null;
+  responseBodyJson: string | null;
+};
+
+export type ApiExplorerResponse = {
+  repositoryName: string;
+  basePackage: string;
+  totalEndpoints: number;
+  endpoints: ApiEndpointItem[];
+};
+
+export type ServiceNode = {
+  id: string;
+  name: string;
+  role: "GATEWAY" | "CORE_SERVICE" | "DATA_STORE" | "CLIENT_WEB" | "EVENT_BUS" | string;
+  language: string;
+  description: string;
+  repositoryUrl: string | null;
+  protocols: string[];
+};
+
+export type ServiceLink = {
+  source: string;
+  target: string;
+  protocol: string;
+  description: string;
+};
+
+export type MicroserviceTopologyResponse = {
+  username: string;
+  totalServices: number;
+  services: ServiceNode[];
+  connections: ServiceLink[];
 };
 
 export type VerifiedSkill = {

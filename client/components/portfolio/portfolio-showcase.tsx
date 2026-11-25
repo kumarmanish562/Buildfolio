@@ -35,6 +35,8 @@ import { BadgeEmbedDialog } from "@/components/portfolio/badge-embed-dialog";
 import { RecruiterAskModal } from "@/components/portfolio/recruiter-ask-modal";
 import { WhatIfSimulatorDialog } from "@/components/portfolio/what-if-simulator-dialog";
 import { DependencyGraphViewer } from "@/components/portfolio/dependency-graph-viewer";
+import { ApiExplorerViewer } from "@/components/portfolio/api-explorer-viewer";
+import { GitHubActionDialog } from "@/components/portfolio/github-action-dialog";
 import { ShareButtons } from "@/components/ui/share-buttons";
 import { exportPortfolioHtmlReport } from "@/lib/export-portfolio-report";
 import { toast } from "@/components/ui/toast";
@@ -49,7 +51,7 @@ export function PortfolioShowcase({
   initialPortfolio?: Portfolio;
 }) {
   const [prResultUrl, setPrResultUrl] = useState<string | null>(null);
-  const [architectureView, setArchitectureView] = useState<"flow" | "graph">("flow");
+  const [architectureView, setArchitectureView] = useState<"flow" | "graph" | "api">("flow");
 
   // If this is the dashboard view for an owned repo:
   const portfolioQuery = usePortfolio(repoId ?? "", !isPublicView && !!repoId);
@@ -253,6 +255,13 @@ ${featuresMarkdown}
               repoId={portfolio.repositoryId}
               repoName={portfolio.repositoryName}
               portfolioId={portfolio.id}
+            />
+          )}
+
+          {portfolio && (
+            <GitHubActionDialog
+              repoName={portfolio.repositoryName}
+              repoFullName={portfolio.repositoryFullName}
             />
           )}
 
@@ -486,6 +495,17 @@ ${featuresMarkdown}
             >
               Dependency Graph
             </button>
+            <button
+              type="button"
+              onClick={() => setArchitectureView("api")}
+              className={`rounded-lg px-3 py-1 font-medium transition-colors ${
+                architectureView === "api"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              API Explorer & Playground
+            </button>
           </div>
         </div>
 
@@ -502,12 +522,14 @@ ${featuresMarkdown}
                   title={`${portfolio.repositoryName} Architecture`}
                 />
               ) : null
-            ) : (
+            ) : architectureView === "graph" ? (
               <DependencyGraphViewer
                 repoId={portfolio.repositoryId}
                 portfolioId={portfolio.id}
                 isPublicView={isPublicView}
               />
+            ) : (
+              <ApiExplorerViewer portfolioId={portfolio.id} />
             )}
           </div>
         </div>
