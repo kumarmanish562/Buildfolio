@@ -51,10 +51,10 @@ export type ChatSession = {
 export type MessageRole = "USER" | "ASSISTANT";
 
 export type Citation = {
-  filePath?: string;
-  startLine?: number;
-  endLine?: number;
-  language?: string;
+  filePath: string;
+  startLine: number | null;
+  endLine: number | null;
+  language: string | null;
 };
 
 export type ChatMessage = {
@@ -67,6 +67,7 @@ export type ChatMessage = {
 
 export type HealthResponse = {
   status: string;
+  timestamp?: string;
 };
 
 export type TechStackCategory = {
@@ -150,48 +151,77 @@ export type SecurityAudit = {
   createdAt: string;
 };
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+export class ApiError extends Error {
+  status: number;
 
-async function apiFetch<T>(
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+export function getApiBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:8080"
+  );
+}
+
+export function getGithubLoginUrl() {
+  return `${getApiBaseUrl()}/oauth2/authorization/github`;
+}
+
+async function parseError(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    return (
+      data.message ??
+      data.error ??
+      data.detail ??
+      res.statusText ??
+      "Request failed"
+    );
+  } catch {
+    return res.statusText || "Request failed";
+  }
+}
+
+export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  init?: RequestInit
 ): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
+    ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {}),
+      ...(init?.headers ?? {}),
     },
-    credentials: "include",
+    cache: "no-store",
   });
 
   if (!res.ok) {
-    let errorMsg = `API request failed with status ${res.status}`;
-    try {
-      const errorData = await res.json();
-      if (errorData.message) {
-        errorMsg = errorData.message;
-      }
-    } catch {
-      // Ignore if response body isn't JSON
-    }
-    throw new Error(errorMsg);
+    throw new ApiError(res.status, await parseError(res));
   }
 
-  // Handle empty bodies (e.g. 204 No Content)
   if (res.status === 204) {
-    return {} as T;
+    return undefined as T;
   }
 
-  return res.json();
+  const contentType = res.headers.get("content-type");
+  if (!contentType?.includes("application/json")) {
+    return undefined as T;
+  }
+
+  return res.json() as Promise<T>;
 }
 
 export const api = {
   /* ================= AUTH ================= */
 
-  getCurrentUser: () =>
-    apiFetch<User>("/api/auth/me"),
+  me: () => apiFetch<User>("/api/auth/me"),
 
   logout: () =>
     apiFetch<void>("/api/auth/logout", {
@@ -200,91 +230,69 @@ export const api = {
 
   /* ================= REPOSITORIES ================= */
 
-  listRepositories: (refresh: boolean = false) =>
-    apiFetch<Repository[]>(
-      `/api/repos?refresh=${refresh}`
-    ),
+  listRepos: (refresh = true) =>
+    apiFetch<Repository[]>(`/api/repos?refresh=${refresh}`),
 
-  getRepository: (id: string) =>
-    apiFetch<Repository>(`/api/repos/${id}`),
+  getRepo: (id: string) => apiFetch<Repository>(`/api/repos/${id}`),
 
-  indexRepository: (id: string) =>
+  startIndex: (id: string) =>
     apiFetch<Repository>(`/api/repos/${id}/index`, {
       method: "POST",
     }),
 
-  getIndexStatus: (id: string) =>
-    apiFetch<IndexStatusResponse>(
-      `/api/repos/${id}/index-status`
-    ),
+  indexStatus: (id: string) =>
+    apiFetch<IndexStatusResponse>(`/api/repos/${id}/index-status`),
+
+  deleteRepo: (id: string) =>
+    apiFetch<void>(`/api/repos/${id}`, {
+      method: "DELETE",
+    }),
 
   /* ================= CHAT ================= */
 
-  createChatSession: (
-    repositoryId: string,
-    title?: string
-  ) =>
+  createSession: (repositoryId: string, title?: string) =>
     apiFetch<ChatSession>("/api/chat/sessions", {
       method: "POST",
       body: JSON.stringify({ repositoryId, title }),
     }),
 
-  listChatSessions: (repositoryId: string) =>
+  listSessions: (repositoryId: string) =>
     apiFetch<ChatSession[]>(
-      `/api/chat/sessions?repositoryId=${repositoryId}`
+      `/api/chat/sessions?repositoryId=${encodeURIComponent(repositoryId)}`
     ),
 
-  getChatMessages: (sessionId: string) =>
-    apiFetch<ChatMessage[]>(
-      `/api/chat/sessions/${sessionId}`
-    ),
+  getMessages: (sessionId: string) =>
+    apiFetch<ChatMessage[]>(`/api/chat/sessions/${sessionId}`),
 
-  deleteChatSession: (sessionId: string) =>
-    apiFetch<void>(
-      `/api/chat/sessions/${sessionId}`,
-      {
-        method: "DELETE",
-      }
-    ),
+  deleteSession: (sessionId: string) =>
+    apiFetch<void>(`/api/chat/sessions/${sessionId}`, {
+      method: "DELETE",
+    }),
 
   /* ================= HEALTH ================= */
 
-  health: () =>
-    apiFetch<HealthResponse>(
-      "/actuator/health"
-    ),
+  health: () => apiFetch<HealthResponse>("/actuator/health"),
 
   /* ================= PORTFOLIO ================= */
 
   generatePortfolio: (repoId: string) =>
-    apiFetch<Portfolio>(
-      `/api/repos/${repoId}/portfolio/generate`,
-      {
-        method: "POST",
-      }
-    ),
+    apiFetch<Portfolio>(`/api/repos/${repoId}/portfolio/generate`, {
+      method: "POST",
+    }),
 
   getPortfolio: (repoId: string) =>
-    apiFetch<Portfolio>(
-      `/api/repos/${repoId}/portfolio`
-    ),
+    apiFetch<Portfolio>(`/api/repos/${repoId}/portfolio`),
 
   updatePortfolioVisibility: (repoId: string, isPublic: boolean) =>
-    apiFetch<Portfolio>(
-      `/api/repos/${repoId}/portfolio/visibility`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ isPublic }),
-      }
-    ),
+    apiFetch<Portfolio>(`/api/repos/${repoId}/portfolio/visibility`, {
+      method: "PATCH",
+      body: JSON.stringify({ isPublic }),
+    }),
 
   deletePortfolio: (repoId: string) =>
-    apiFetch<void>(
-      `/api/repos/${repoId}/portfolio`,
-      {
-        method: "DELETE",
-      }
-    ),
+    apiFetch<void>(`/api/repos/${repoId}/portfolio`, {
+      method: "DELETE",
+    }),
 
   exportArchitecturePr: (repoId: string) =>
     apiFetch<CreatePullRequestResponse>(
@@ -295,45 +303,29 @@ export const api = {
     ),
 
   getPublicPortfolio: (portfolioId: string) =>
-    apiFetch<Portfolio>(
-      `/api/public/portfolios/${portfolioId}`
-    ),
+    apiFetch<Portfolio>(`/api/public/portfolios/${portfolioId}`),
 
   /* ================= SECURITY & AUDIT ================= */
 
   runSecurityAudit: (repoId: string) =>
-    apiFetch<SecurityAudit>(
-      `/api/repos/${repoId}/audit/run`,
-      {
-        method: "POST",
-      }
-    ),
+    apiFetch<SecurityAudit>(`/api/repos/${repoId}/audit/run`, {
+      method: "POST",
+    }),
 
   getLatestSecurityAudit: (repoId: string) =>
-    apiFetch<SecurityAudit>(
-      `/api/repos/${repoId}/audit`
-    ),
+    apiFetch<SecurityAudit>(`/api/repos/${repoId}/audit`),
 
-  fixVulnerability: (
-    repoId: string,
-    request: FixVulnerabilityRequest
-  ) =>
-    apiFetch<FixVulnerabilityResponse>(
-      `/api/repos/${repoId}/audit/fix`,
-      {
-        method: "POST",
-        body: JSON.stringify(request),
-      }
-    ),
+  fixVulnerability: (repoId: string, request: FixVulnerabilityRequest) =>
+    apiFetch<FixVulnerabilityResponse>(`/api/repos/${repoId}/audit/fix`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
 
   /* ================= COMPARISON ================= */
 
   compareRepositories: (repositoryIds: string[]) =>
-    apiFetch<RepoComparisonResponse>(
-      "/api/repos/compare",
-      {
-        method: "POST",
-        body: JSON.stringify(repositoryIds),
-      }
-    ),
+    apiFetch<RepoComparisonResponse>("/api/repos/compare", {
+      method: "POST",
+      body: JSON.stringify(repositoryIds),
+    }),
 };

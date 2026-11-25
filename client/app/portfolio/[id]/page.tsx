@@ -7,7 +7,7 @@ import { usePublicPortfolio } from "@/hooks/use-portfolio";
 import { PortfolioShowcase } from "@/components/portfolio/portfolio-showcase";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { ModeToggle } from "@/components/ui/mode-toggle";
 
 export default function PublicPortfolioPage({
   params,
@@ -30,7 +30,7 @@ export default function PublicPortfolioPage({
             </span>
           </Link>
           <div className="flex items-center gap-3">
-            <ThemeToggle />
+            <ModeToggle />
             <Button
               variant="outline"
               size="sm"

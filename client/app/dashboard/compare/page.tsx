@@ -15,14 +15,14 @@ import {
 } from "lucide-react";
 
 import { api, Repository, RepoComparisonResponse } from "@/lib/api";
-import { useRepositories } from "@/hooks/use-repos";
+import { useRepos } from "@/hooks/use-repos";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CompareRepositoriesPage() {
-  const { data: repos, isLoading } = useRepositories(false);
+  const { data: repos, isLoading } = useRepos();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const compareMutation = useMutation({

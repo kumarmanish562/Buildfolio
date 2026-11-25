@@ -1,7 +1,10 @@
 package com.buildfolio.backend;
 
+import com.buildfolio.backend.audit.repository.SecurityAuditRepository;
+import com.buildfolio.backend.auth.service.UserService;
 import com.buildfolio.backend.common.exception.BadRequestException;
 import com.buildfolio.backend.common.exception.NotFoundException;
+import com.buildfolio.backend.indexing.service.github.GithubApiClient;
 import com.buildfolio.backend.portfolio.dto.PortfolioResponse;
 import com.buildfolio.backend.portfolio.entity.Portfolio;
 import com.buildfolio.backend.portfolio.repository.PortfolioRepository;
@@ -33,7 +36,16 @@ class PortfolioServiceTest {
     private PortfolioRepository portfolioRepository;
 
     @Mock
+    private SecurityAuditRepository securityAuditRepository;
+
+    @Mock
     private RepoService repoService;
+
+    @Mock
+    private UserService userService;
+
+    @Mock
+    private GithubApiClient githubApiClient;
 
     @Mock
     private CodeContextRetriever codeContextRetriever;
@@ -49,7 +61,10 @@ class PortfolioServiceTest {
         objectMapper = new ObjectMapper();
         portfolioService = new PortfolioService(
                 portfolioRepository,
+                securityAuditRepository,
                 repoService,
+                userService,
+                githubApiClient,
                 codeContextRetriever,
                 chatModel,
                 objectMapper

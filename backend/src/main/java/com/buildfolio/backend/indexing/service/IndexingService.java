@@ -62,7 +62,7 @@ public class IndexingService {
         Repository saved = repositoryRepository.save(repo);
 
         progressBroadcaster.broadcast(repoId, new IndexStatusResponse(
-                IndexStatus.INDEXING, 0, 0, 0, null, null
+                repoId, IndexStatus.INDEXING, 0, 0, 0, null, null
         ));
 
         return saved;
@@ -174,7 +174,7 @@ public class IndexingService {
             repositoryRepository.save(repo);
 
             progressBroadcaster.broadcast(repoId, new IndexStatusResponse(
-                    status, total, processed, chunks, repo.getIndexedAt(), error
+                    repoId, status, total, processed, chunks, repo.getIndexedAt(), error
             ));
         });
     }
@@ -192,7 +192,7 @@ public class IndexingService {
             repositoryRepository.save(repo);
 
             progressBroadcaster.broadcast(repoId, new IndexStatusResponse(
-                    IndexStatus.READY, totalFiles, processedFiles, totalChunks, repo.getIndexedAt(), null
+                    repoId, IndexStatus.READY, totalFiles, processedFiles, totalChunks, repo.getIndexedAt(), null
             ));
         });
         log.info("Indexed {} files ({} chunks) for {}", processedFiles, totalChunks, fullName);
@@ -209,7 +209,7 @@ public class IndexingService {
             repositoryRepository.save(repo);
 
             progressBroadcaster.broadcast(repoId, new IndexStatusResponse(
-                    IndexStatus.FAILED, repo.getFilesTotal(), repo.getFilesProcessed(), repo.getChunkCount(), repo.getIndexedAt(), repo.getErrorMessage()
+                    repoId, IndexStatus.FAILED, repo.getFilesTotal(), repo.getFilesProcessed(), repo.getChunkCount(), repo.getIndexedAt(), repo.getErrorMessage()
             ));
         });
     }

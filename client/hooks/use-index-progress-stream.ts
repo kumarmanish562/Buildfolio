@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IndexStatusResponse } from "@/lib/api";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+import { getApiBaseUrl, IndexStatusResponse } from "@/lib/api";
 
 export function useIndexProgressStream(repoId: string, enabled: boolean = true) {
   const [liveStatus, setLiveStatus] = useState<IndexStatusResponse | null>(null);
@@ -13,7 +11,7 @@ export function useIndexProgressStream(repoId: string, enabled: boolean = true) 
 
     let eventSource: EventSource | null = null;
     try {
-      eventSource = new EventSource(`${API_BASE}/api/repos/${repoId}/index-stream`, {
+      eventSource = new EventSource(`${getApiBaseUrl()}/api/repos/${repoId}/index-stream`, {
         withCredentials: true,
       });
 

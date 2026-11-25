@@ -60,6 +60,7 @@ public class RepoController {
         UUID userId = currentUser.require().getId();
         Repository repo = repoService.requireOwned(id, userId);
         return new IndexStatusResponse(
+                repo.getId(),
                 repo.getIndexStatus(),
                 repo.getFilesTotal(),
                 repo.getFilesProcessed(),
