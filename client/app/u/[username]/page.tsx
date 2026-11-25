@@ -106,7 +106,10 @@ export default function PublicDeveloperProfilePage({
         {profile && (
           <div className="space-y-12">
             {/* Developer Hero Card */}
-            <section className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-card via-card to-muted/40 p-6 md:p-10 shadow-sm">
+            <section className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-card via-card/90 to-card/50 p-6 md:p-10 shadow-lg backdrop-blur-sm">
+              {/* Subtle ambient glow */}
+              <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+              <div className="pointer-events-none absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
               <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
                   {profile.avatarUrl ? (

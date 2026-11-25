@@ -7,14 +7,18 @@ import {
   ArrowUpRight,
   Briefcase,
   Check,
+  Code2,
   Cpu,
   Download,
+  GitFork,
   GitPullRequest,
   Globe,
   Layers,
   Lock,
+  Network,
   Printer,
   RefreshCw,
+  ShieldAlert,
   Sparkles,
 } from "lucide-react";
 
@@ -473,50 +477,54 @@ ${featuresMarkdown}
           </div>
 
           {/* Architecture sub-view toggle */}
-          <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs">
+          <div className="flex flex-wrap items-center rounded-xl border bg-muted/40 p-1 text-xs gap-1">
             <button
               type="button"
               onClick={() => setArchitectureView("flow")}
-              className={`rounded-lg px-3 py-1 font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 font-semibold transition-all ${
                 architectureView === "flow"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-background text-foreground shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              System Flow (Mermaid)
+              <GitFork className="size-3.5 text-primary" />
+              <span>System Flow</span>
             </button>
             <button
               type="button"
               onClick={() => setArchitectureView("graph")}
-              className={`rounded-lg px-3 py-1 font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 font-semibold transition-all ${
                 architectureView === "graph"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-background text-foreground shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Dependency Graph
+              <Network className="size-3.5 text-sky-500" />
+              <span>Dependency Graph</span>
             </button>
             <button
               type="button"
               onClick={() => setArchitectureView("api")}
-              className={`rounded-lg px-3 py-1 font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 font-semibold transition-all ${
                 architectureView === "api"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-background text-foreground shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              API Explorer & Playground
+              <Code2 className="size-3.5 text-emerald-500" />
+              <span>API Explorer</span>
             </button>
             <button
               type="button"
               onClick={() => setArchitectureView("debt")}
-              className={`rounded-lg px-3 py-1 font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 font-semibold transition-all ${
                 architectureView === "debt"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-background text-foreground shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Tech Debt & Anti-Patterns
+              <ShieldAlert className="size-3.5 text-amber-500" />
+              <span>Tech Debt & Anti-Patterns</span>
             </button>
           </div>
         </div>

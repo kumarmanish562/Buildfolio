@@ -593,27 +593,28 @@ function StatCard({
   hint: string;
 }) {
   return (
-    <Card variant="gradient" className="overflow-hidden">
+    <Card variant="gradient" className="glow-card overflow-hidden border border-border/80 shadow-xs hover:border-foreground/20 transition-all">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
-          <div>
-            <CardDescription>
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
               {label}
-            </CardDescription>
+            </span>
 
-            <CardTitle className="mt-1 text-2xl">
+            <div className="text-3xl font-extrabold tracking-tight text-foreground">
               {value}
-            </CardTitle>
+            </div>
           </div>
 
-          <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-inner">
             <Icon className="size-4" />
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="text-xs text-muted-foreground">
-        {hint}
+      <CardContent className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+        <span>{hint}</span>
       </CardContent>
     </Card>
   );
