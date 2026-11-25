@@ -9,11 +9,8 @@ import com.buildfolio.backend.chat.service.ai.CodeContextRetriever;
 import com.buildfolio.backend.common.exception.BadRequestException;
 import com.buildfolio.backend.common.exception.NotFoundException;
 import com.buildfolio.backend.indexing.service.github.GithubApiClient;
-import com.buildfolio.backend.portfolio.dto.CreatePullRequestResponse;
-import com.buildfolio.backend.portfolio.dto.PortfolioResponse;
-import com.buildfolio.backend.portfolio.dto.PublicProfileResponse;
-import com.buildfolio.backend.portfolio.dto.RepoComparisonItem;
-import com.buildfolio.backend.portfolio.dto.RepoComparisonResponse;
+import com.buildfolio.backend.chat.dto.CitationDto;
+import com.buildfolio.backend.portfolio.dto.*;
 import com.buildfolio.backend.portfolio.entity.Portfolio;
 import com.buildfolio.backend.portfolio.repository.PortfolioRepository;
 import com.buildfolio.backend.repo.entity.IndexStatus;
@@ -415,6 +412,253 @@ public class PortfolioService {
             log.warn("Failed to parse LLM portfolio JSON, using fallback parsing: {}", e.getMessage());
             return fallbackPortfolio(repo);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public PublicAskResponse askPublicPortfolio(UUID portfolioId, PublicAskRequest request) {
+        Portfolio portfolio = portfolioRepository.findById(portfolioId)
+                .orElseThrow(() -> new NotFoundException("Portfolio not found"));
+
+        if (!portfolio.isPublic()) {
+            throw new BadRequestException("This portfolio is private and cannot be queried publicly");
+        }
+
+        Repository repo = repoService.findById(portfolio.getRepositoryId())
+                .orElseThrow(() -> new NotFoundException("Repository not found"));
+        var retrieved = codeContextRetriever.retrieve(repo.getId(), request.question());
+
+        String systemPrompt = """
+                You are BuildFolio's Technical AI Advocate representing the developer of this repository (%s) in a technical interview with a recruiter, client, or engineering manager.
+                
+                GUIDELINES:
+                1. Answer in the first person ("In this project, I/we designed...", "The architecture uses...").
+                2. Provide concrete technical rationale (why specific patterns, frameworks, or database strategies were chosen).
+                3. Base your answers strictly on the provided indexed code snippets.
+                4. Be concise, authoritative, professional, and highlight software engineering craftsmanship, security posture, and scalability.
+                
+                CODEBASE CONTEXT:
+                %s
+                """.formatted(repo.getFullName(), retrieved.contextText());
+
+        String rawAnswer = ChatClient.builder(chatModel)
+                .build()
+                .prompt()
+                .system(systemPrompt)
+                .user(request.question())
+                .call()
+                .content();
+
+        List<CitationDto> citations = retrieved.citations() != null ? retrieved.citations() : List.of();
+
+        return new PublicAskResponse(rawAnswer, citations);
+    }
+
+    @Transactional(readOnly = true)
+    public SimulateArchitectureResponse simulateArchitecture(
+            UUID repoId,
+            UUID userId,
+            SimulateArchitectureRequest request
+    ) {
+        Repository repo = repoService.requireOwned(repoId, userId);
+        Optional<Portfolio> portfolioOpt = portfolioRepository.findByRepositoryId(repo.getId());
+
+        String currentArchitecture = portfolioOpt.map(Portfolio::getArchitectureOverview).orElse("Layered microservice architecture");
+        String currentMermaid = portfolioOpt.map(Portfolio::getMermaidDiagram).orElse(defaultMermaidDiagram(repo));
+
+        String systemPrompt = """
+                You are a Principal Enterprise Solutions Architect and Systems Modeler.
+                The developer wants to simulate an architectural change scenario for their system: "%s".
+
+                Current Architecture:
+                %s
+
+                Current Mermaid Diagram:
+                %s
+
+                TASK:
+                Analyze the scenario and output a valid JSON object matching the schema below.
+                DO NOT output markdown code fences (like ```json), commentary, or extra text.
+                The proposedMermaid MUST be a valid Mermaid flowchart TD diagram showing the new components or modified flows.
+
+                JSON SCHEMA:
+                {
+                  "scenario": "Concise summary of the scenario",
+                  "proposedMermaid": "flowchart TD\\n  ...",
+                  "tradeOffAnalysis": "Detailed technical analysis of latency, operational cost, reliability, and maintenance trade-offs.",
+                  "architecturalImpacts": ["Impact 1 on database", "Impact 2 on network/throughput", "Impact 3 on failure domains"],
+                  "estimatedComplexity": "LOW | MEDIUM | HIGH | CRITICAL",
+                  "migrationStrategy": "Step-by-step phased roadmap to implement this architectural change safely."
+                }
+                """.formatted(request.scenarioPrompt(), currentArchitecture, currentMermaid);
+
+        String rawResponse = ChatClient.builder(chatModel)
+                .build()
+                .prompt()
+                .system(systemPrompt)
+                .user("Simulate this architectural change now: " + request.scenarioPrompt())
+                .call()
+                .content();
+
+        try {
+            String clean = rawResponse.trim();
+            if (clean.startsWith("```json")) clean = clean.substring(7);
+            if (clean.startsWith("```")) clean = clean.substring(3);
+            if (clean.endsWith("```")) clean = clean.substring(0, clean.length() - 3);
+            clean = clean.trim();
+
+            JsonNode root = objectMapper.readTree(clean);
+            String scenario = root.path("scenario").asText(request.scenarioPrompt());
+            String proposedMermaid = root.path("proposedMermaid").asText(currentMermaid);
+            String tradeOffs = root.path("tradeOffAnalysis").asText("Trade-offs analyzed for " + scenario);
+
+            List<String> impacts = new ArrayList<>();
+            JsonNode impactsNode = root.path("architecturalImpacts");
+            if (impactsNode.isArray()) {
+                impactsNode.forEach(i -> impacts.add(i.asText()));
+            }
+            if (impacts.isEmpty()) {
+                impacts.add("Component decoupling and targeted scaling");
+                impacts.add("Additional network serialization overhead");
+            }
+
+            String complexity = root.path("estimatedComplexity").asText("MEDIUM");
+            String strategy = root.path("migrationStrategy").asText("Phase 1: Dual-write or interface abstraction. Phase 2: Canary rollout.");
+
+            return new SimulateArchitectureResponse(scenario, proposedMermaid, tradeOffs, impacts, complexity, strategy);
+
+        } catch (Exception e) {
+            log.warn("Failed to parse architectural simulation JSON, using fallback: {}", e.getMessage());
+            return new SimulateArchitectureResponse(
+                    request.scenarioPrompt(),
+                    currentMermaid,
+                    "Simulated architectural migration for " + request.scenarioPrompt() + ". Evaluated for resilience, decoupled state, and horizontal scaling capabilities.",
+                    List.of(
+                            "Database query latency profile adjusted",
+                            "Asynchronous decoupled messaging boundary introduced",
+                            "Independent deployment and scaling boundaries"
+                    ),
+                    "MEDIUM",
+                    "1. Introduce contract interfaces. 2. Deploy backing services. 3. Route shadow traffic. 4. Cut over active traffic."
+            );
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public DependencyGraphResponse getDependencyGraph(UUID repoId, UUID userId) {
+        Repository repo = repoService.requireOwned(repoId, userId);
+        return buildDependencyGraph(repo);
+    }
+
+    @Transactional(readOnly = true)
+    public DependencyGraphResponse getPublicDependencyGraph(UUID portfolioId) {
+        Portfolio portfolio = portfolioRepository.findById(portfolioId)
+                .orElseThrow(() -> new NotFoundException("Portfolio not found"));
+        if (!portfolio.isPublic()) {
+            throw new BadRequestException("This portfolio is private");
+        }
+        Repository repo = repoService.findById(portfolio.getRepositoryId())
+                .orElseThrow(() -> new NotFoundException("Repository not found"));
+        return buildDependencyGraph(repo);
+    }
+
+    private DependencyGraphResponse buildDependencyGraph(Repository repo) {
+        var context = codeContextRetriever.retrieve(repo.getId(), "controller service repository entity config model component client");
+
+        Map<String, DependencyGraphResponse.GraphNode> nodeMap = new LinkedHashMap<>();
+        List<DependencyGraphResponse.GraphLink> links = new ArrayList<>();
+
+        if (context.citations() != null) {
+            for (var citation : context.citations()) {
+                String path = citation.filePath();
+                if (path == null || path.isBlank()) continue;
+
+                String fileName = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+                if (fileName.contains("\\")) fileName = fileName.substring(fileName.lastIndexOf('\\') + 1);
+
+                String name = fileName.contains(".") ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+                String lower = name.toLowerCase();
+
+                String type;
+                if (lower.contains("controller") || lower.contains("resource") || lower.contains("endpoint")) {
+                    type = "CONTROLLER";
+                } else if (lower.contains("service") || lower.contains("manager") || lower.contains("handler")) {
+                    type = "SERVICE";
+                } else if (lower.contains("repository") || lower.contains("dao")) {
+                    type = "REPOSITORY";
+                } else if (lower.contains("entity") || lower.contains("model") || lower.contains("dto")) {
+                    type = "ENTITY";
+                } else if (lower.contains("config") || lower.contains("security")) {
+                    type = "CONFIG";
+                } else {
+                    type = "COMPONENT";
+                }
+
+                if (!nodeMap.containsKey(name)) {
+                    nodeMap.put(name, new DependencyGraphResponse.GraphNode(
+                            name,
+                            name,
+                            path,
+                            type,
+                            12 + (name.length() * 2)
+                    ));
+                }
+            }
+        }
+
+        // If repo has very few chunks in sample, populate standard architecture nodes
+        if (nodeMap.size() < 4) {
+            String base = repo.getName().replaceAll("[^a-zA-Z0-9]", "");
+            nodeMap.put("AppController", new DependencyGraphResponse.GraphNode("AppController", "AppController", "src/controller/AppController", "CONTROLLER", 24));
+            nodeMap.put("CoreService", new DependencyGraphResponse.GraphNode("CoreService", "CoreService", "src/service/CoreService", "SERVICE", 28));
+            nodeMap.put("DataRepository", new DependencyGraphResponse.GraphNode("DataRepository", "DataRepository", "src/repository/DataRepository", "REPOSITORY", 22));
+            nodeMap.put(base + "Entity", new DependencyGraphResponse.GraphNode(base + "Entity", base + "Entity", "src/entity/" + base + "Entity", "ENTITY", 18));
+            nodeMap.put("SecurityConfig", new DependencyGraphResponse.GraphNode("SecurityConfig", "SecurityConfig", "src/config/SecurityConfig", "CONFIG", 20));
+        }
+
+        // Build logical dependency links between layers
+        List<DependencyGraphResponse.GraphNode> controllers = nodeMap.values().stream().filter(n -> "CONTROLLER".equals(n.type())).toList();
+        List<DependencyGraphResponse.GraphNode> services = nodeMap.values().stream().filter(n -> "SERVICE".equals(n.type())).toList();
+        List<DependencyGraphResponse.GraphNode> repositories = nodeMap.values().stream().filter(n -> "REPOSITORY".equals(n.type())).toList();
+        List<DependencyGraphResponse.GraphNode> entities = nodeMap.values().stream().filter(n -> "ENTITY".equals(n.type())).toList();
+        List<DependencyGraphResponse.GraphNode> configs = nodeMap.values().stream().filter(n -> "CONFIG".equals(n.type())).toList();
+
+        for (var c : controllers) {
+            for (var s : services) {
+                links.add(new DependencyGraphResponse.GraphLink(c.id(), s.id(), "CALLS"));
+            }
+        }
+
+        for (var s : services) {
+            for (var r : repositories) {
+                links.add(new DependencyGraphResponse.GraphLink(s.id(), r.id(), "DEPENDS_ON"));
+            }
+        }
+
+        for (var r : repositories) {
+            for (var e : entities) {
+                links.add(new DependencyGraphResponse.GraphLink(r.id(), e.id(), "MANAGES"));
+            }
+        }
+
+        for (var cfg : configs) {
+            if (!controllers.isEmpty()) {
+                links.add(new DependencyGraphResponse.GraphLink(cfg.id(), controllers.get(0).id(), "CONFIGURES"));
+            }
+        }
+
+        int totalNodes = nodeMap.size();
+        int totalLinks = links.size();
+
+        var metrics = new DependencyGraphResponse.GraphMetrics(
+                totalNodes,
+                totalLinks,
+                controllers.size(),
+                services.size(),
+                repositories.size(),
+                entities.size()
+        );
+
+        return new DependencyGraphResponse(new ArrayList<>(nodeMap.values()), links, metrics);
     }
 
     private ParsedPortfolio fallbackPortfolio(Repository repo) {

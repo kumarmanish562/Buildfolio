@@ -22,6 +22,7 @@ import { usePublicProfile } from "@/hooks/use-portfolio";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { ShareButtons } from "@/components/ui/share-buttons";
+import { RecruiterAskModal } from "@/components/portfolio/recruiter-ask-modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -157,6 +158,14 @@ export default function PublicDeveloperProfilePage({
                 {/* Quick Share & Stats */}
                 <div className="flex flex-col items-start gap-3 md:items-end">
                   <div className="flex flex-wrap items-center gap-2">
+                    {profile.portfolios.length > 0 && (
+                      <RecruiterAskModal
+                        portfolioId={profile.portfolios[0].id}
+                        repoName={profile.portfolios[0].repositoryName}
+                        authorName={profile.displayName}
+                      />
+                    )}
+
                     <Button
                       size="sm"
                       className="gap-2"

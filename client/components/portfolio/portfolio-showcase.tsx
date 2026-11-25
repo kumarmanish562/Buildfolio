@@ -31,6 +31,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import { MermaidDiagramViewer } from "@/components/portfolio/mermaid-diagram-viewer";
+import { BadgeEmbedDialog } from "@/components/portfolio/badge-embed-dialog";
+import { RecruiterAskModal } from "@/components/portfolio/recruiter-ask-modal";
+import { WhatIfSimulatorDialog } from "@/components/portfolio/what-if-simulator-dialog";
+import { DependencyGraphViewer } from "@/components/portfolio/dependency-graph-viewer";
 import { ShareButtons } from "@/components/ui/share-buttons";
 import { exportPortfolioHtmlReport } from "@/lib/export-portfolio-report";
 import { toast } from "@/components/ui/toast";
@@ -45,6 +49,7 @@ export function PortfolioShowcase({
   initialPortfolio?: Portfolio;
 }) {
   const [prResultUrl, setPrResultUrl] = useState<string | null>(null);
+  const [architectureView, setArchitectureView] = useState<"flow" | "graph">("flow");
 
   // If this is the dashboard view for an owned repo:
   const portfolioQuery = usePortfolio(repoId ?? "", !isPublicView && !!repoId);
@@ -229,6 +234,28 @@ ${featuresMarkdown}
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2">
+          {portfolio && (
+            <RecruiterAskModal
+              portfolioId={portfolio.id}
+              repoName={portfolio.repositoryName}
+            />
+          )}
+
+          {!isPublicView && repoId && portfolio && (
+            <WhatIfSimulatorDialog
+              repoId={portfolio.repositoryId}
+              repoName={portfolio.repositoryName}
+            />
+          )}
+
+          {portfolio && (
+            <BadgeEmbedDialog
+              repoId={portfolio.repositoryId}
+              repoName={portfolio.repositoryName}
+              portfolioId={portfolio.id}
+            />
+          )}
+
           {!isPublicView && (
             <>
               <Button
@@ -429,9 +456,37 @@ ${featuresMarkdown}
 
       {/* System Architecture */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <Layers className="size-5 text-primary" />
-          <h2>Architecture & System Design</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <Layers className="size-5 text-primary" />
+            <h2>Architecture & System Design</h2>
+          </div>
+
+          {/* Architecture sub-view toggle */}
+          <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setArchitectureView("flow")}
+              className={`rounded-lg px-3 py-1 font-medium transition-colors ${
+                architectureView === "flow"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              System Flow (Mermaid)
+            </button>
+            <button
+              type="button"
+              onClick={() => setArchitectureView("graph")}
+              className={`rounded-lg px-3 py-1 font-medium transition-colors ${
+                architectureView === "graph"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Dependency Graph
+            </button>
+          </div>
         </div>
 
         <div className="rounded-2xl border bg-card p-6 md:p-8">
@@ -439,14 +494,22 @@ ${featuresMarkdown}
             {portfolio.architectureOverview}
           </p>
 
-          {portfolio.mermaidDiagram && (
-            <div className="mt-6">
-              <MermaidDiagramViewer
-                chart={portfolio.mermaidDiagram}
-                title={`${portfolio.repositoryName} Architecture`}
+          <div className="mt-6">
+            {architectureView === "flow" ? (
+              portfolio.mermaidDiagram ? (
+                <MermaidDiagramViewer
+                  chart={portfolio.mermaidDiagram}
+                  title={`${portfolio.repositoryName} Architecture`}
+                />
+              ) : null
+            ) : (
+              <DependencyGraphViewer
+                repoId={portfolio.repositoryId}
+                portfolioId={portfolio.id}
+                isPublicView={isPublicView}
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </section>
 

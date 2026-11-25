@@ -15,5 +15,7 @@ public interface RepositoryRepository extends JpaRepository<Repository, UUID> {
 
     Optional<Repository> findByUserIdAndGithubRepoId(UUID userId, Long githubRepoId);
 
+    Optional<Repository> findByFullName(String fullName);
+
     boolean existsByIdAndUserId(UUID id, UUID userId);
 }

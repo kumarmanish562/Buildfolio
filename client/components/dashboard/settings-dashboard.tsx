@@ -4,9 +4,11 @@ import {
   CheckCircle2,
   CircleAlert,
   Compass,
+  Copy,
   Gauge,
   LogOut,
   Moon,
+  Radio,
   Server,
   Sun,
   UserRound,
@@ -23,6 +25,7 @@ import {
   isPerformanceHudEnabled,
   setPerformanceHudEnabled,
 } from "@/components/ui/performance-hud";
+import { toast } from "@/components/ui/toast";
 import * as React from "react";
 import {
   Avatar,
@@ -366,6 +369,74 @@ export function SettingsDashboard() {
 
             )}
 
+          </div>
+
+        </CardContent>
+
+      </Card>
+
+      {/* ============================================================
+          GITHUB WEBHOOKS & AUTO-SYNC
+      ============================================================ */}
+
+      <Card>
+
+        <CardHeader>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>GitHub Webhooks & Real-Time Sync</CardTitle>
+              <CardDescription>
+                Automatically re-index changed files and update your portfolios whenever you push to GitHub.
+              </CardDescription>
+            </div>
+
+            <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 gap-1.5">
+              <Radio className="size-3 animate-pulse" />
+              Active Listener
+            </Badge>
+          </div>
+
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+
+          <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <Label className="text-xs font-semibold">Payload URL</Label>
+                <p className="font-mono text-xs text-muted-foreground mt-0.5">
+                  {typeof window !== "undefined" ? `${window.location.origin}/api/webhooks/github` : "https://buildfolio.dev/api/webhooks/github"}
+                </p>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs shrink-0"
+                onClick={() => {
+                  const url = typeof window !== "undefined" ? `${window.location.origin}/api/webhooks/github` : "https://buildfolio.dev/api/webhooks/github";
+                  navigator.clipboard.writeText(url);
+                  toast.add({
+                    title: "Webhook URL copied",
+                    description: "Paste into your GitHub repository settings under Webhooks.",
+                    type: "success",
+                  });
+                }}
+              >
+                <Copy className="size-3" />
+                Copy URL
+              </Button>
+            </div>
+
+            <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 pt-2 border-t">
+              <div>
+                <span className="font-medium text-foreground">Content type:</span> application/json
+              </div>
+              <div>
+                <span className="font-medium text-foreground">Events:</span> Just the push event
+              </div>
+            </div>
           </div>
 
         </CardContent>

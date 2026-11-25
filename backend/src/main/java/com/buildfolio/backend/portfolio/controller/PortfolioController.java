@@ -1,10 +1,7 @@
 package com.buildfolio.backend.portfolio.controller;
 
 import com.buildfolio.backend.common.security.CurrentUser;
-import com.buildfolio.backend.portfolio.dto.CreatePullRequestResponse;
-import com.buildfolio.backend.portfolio.dto.PortfolioResponse;
-import com.buildfolio.backend.portfolio.dto.PublicProfileResponse;
-import com.buildfolio.backend.portfolio.dto.UpdatePortfolioVisibilityRequest;
+import com.buildfolio.backend.portfolio.dto.*;
 import com.buildfolio.backend.portfolio.service.PortfolioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -67,10 +64,38 @@ public class PortfolioController {
     }
 
     @PostMapping("/api/repos/compare")
-    public com.buildfolio.backend.portfolio.dto.RepoComparisonResponse compareRepositories(
+    public RepoComparisonResponse compareRepositories(
             @RequestBody java.util.List<UUID> repositoryIds
     ) {
         UUID userId = currentUser.require().getId();
         return portfolioService.compareRepositories(repositoryIds, userId);
+    }
+
+    @PostMapping("/api/public/portfolios/{id}/ask")
+    public PublicAskResponse askPublicPortfolio(
+            @PathVariable UUID id,
+            @Valid @RequestBody PublicAskRequest request
+    ) {
+        return portfolioService.askPublicPortfolio(id, request);
+    }
+
+    @PostMapping("/api/repos/{id}/architecture/simulate")
+    public SimulateArchitectureResponse simulateArchitecture(
+            @PathVariable UUID id,
+            @Valid @RequestBody SimulateArchitectureRequest request
+    ) {
+        UUID userId = currentUser.require().getId();
+        return portfolioService.simulateArchitecture(id, userId, request);
+    }
+
+    @GetMapping("/api/repos/{id}/dependency-graph")
+    public DependencyGraphResponse getDependencyGraph(@PathVariable UUID id) {
+        UUID userId = currentUser.require().getId();
+        return portfolioService.getDependencyGraph(id, userId);
+    }
+
+    @GetMapping("/api/public/portfolios/{id}/dependency-graph")
+    public DependencyGraphResponse getPublicDependencyGraph(@PathVariable UUID id) {
+        return portfolioService.getPublicDependencyGraph(id);
     }
 }

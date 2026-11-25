@@ -47,6 +47,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login-url",
                                 "/api/public/**",
+                                "/api/webhooks/**",
                                 "/oauth2/**",
                                 "/login/oauth2/**",
                                 "/error"

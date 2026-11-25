@@ -361,6 +361,72 @@ export const api = {
 
   getTelemetrySummary: () =>
     apiFetch<TelemetrySummaryResponse>("/api/telemetry/summary"),
+
+  /* ================= ADVANCED FEATURES ================= */
+
+  askPublicPortfolio: (portfolioId: string, question: string) =>
+    apiFetch<PublicAskResponse>(`/api/public/portfolios/${portfolioId}/ask`, {
+      method: "POST",
+      body: JSON.stringify({ question }),
+    }),
+
+  simulateArchitecture: (repoId: string, scenarioPrompt: string) =>
+    apiFetch<SimulateArchitectureResponse>(
+      `/api/repos/${repoId}/architecture/simulate`,
+      {
+        method: "POST",
+        body: JSON.stringify({ scenarioPrompt }),
+      }
+    ),
+
+  getDependencyGraph: (repoId: string) =>
+    apiFetch<DependencyGraphResponse>(`/api/repos/${repoId}/dependency-graph`),
+
+  getPublicDependencyGraph: (portfolioId: string) =>
+    apiFetch<DependencyGraphResponse>(
+      `/api/public/portfolios/${portfolioId}/dependency-graph`
+    ),
+};
+
+export type PublicAskResponse = {
+  answer: string;
+  citations: Citation[];
+};
+
+export type SimulateArchitectureResponse = {
+  scenario: string;
+  proposedMermaid: string;
+  tradeOffAnalysis: string;
+  architecturalImpacts: string[];
+  estimatedComplexity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | string;
+  migrationStrategy: string;
+};
+
+export type DependencyGraphNode = {
+  id: string;
+  name: string;
+  path: string;
+  type: "CONTROLLER" | "SERVICE" | "REPOSITORY" | "ENTITY" | "CONFIG" | "COMPONENT" | string;
+  size: number;
+};
+
+export type DependencyGraphLink = {
+  source: string;
+  target: string;
+  type: string;
+};
+
+export type DependencyGraphResponse = {
+  nodes: DependencyGraphNode[];
+  links: DependencyGraphLink[];
+  metrics: {
+    totalNodes: number;
+    totalLinks: number;
+    controllerCount: number;
+    serviceCount: number;
+    repositoryCount: number;
+    entityCount: number;
+  };
 };
 
 export type TelemetrySummaryResponse = {
