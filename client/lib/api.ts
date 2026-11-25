@@ -345,4 +345,34 @@ export const api = {
       method: "POST",
       body: JSON.stringify(repositoryIds),
     }),
+
+  /* ================= TELEMETRY ================= */
+
+  trackTelemetry: (payload: {
+    eventName: string;
+    category?: string;
+    metadata?: string;
+    durationMs?: number;
+  }) =>
+    apiFetch<void>("/api/telemetry", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getTelemetrySummary: () =>
+    apiFetch<TelemetrySummaryResponse>("/api/telemetry/summary"),
+};
+
+export type TelemetrySummaryResponse = {
+  totalEvents: number;
+  topEvents: { eventName: string; count: number }[];
+  dailyActivity: { date: string; count: number }[];
+  recentEvents: {
+    id: string;
+    eventName: string;
+    category: string;
+    metadata: string | null;
+    durationMs: number | null;
+    createdAt: string;
+  }[];
 };

@@ -1,12 +1,16 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ExternalLink, LogOut, Settings } from "lucide-react";
+import { trackTelemetryEvent } from "@/lib/telemetry";
 
 import { BuildfolioIcon } from "@/components/icons/buildfolio-logo";
 
 import { ModeToggle } from "@/components/ui/mode-toggle";
+import { OnboardingTour } from "@/components/onboarding/onboarding-tour";
+import { PerformanceHud } from "@/components/ui/performance-hud";
 
 import { useCurrentUser, useLogout } from "@/hooks/use-auth";
 
@@ -75,6 +79,12 @@ export function AppShell({
 
   const { data: user } = useCurrentUser();
   const logout = useLogout();
+
+  React.useEffect(() => {
+    if (pathname) {
+      trackTelemetryEvent("page_view", "navigation", pathname);
+    }
+  }, [pathname]);
 
   return (
     <SidebarProvider>
@@ -157,9 +167,9 @@ export function AppShell({
               </SidebarGroupLabel>
 
               <SidebarGroupContent>
-                <SidebarMenu>
+                <SidebarMenu data-tour="sidebar-nav">
                   {group.items.map((item) => (
-                    <SidebarMenuItem key={item.href}>
+                    <SidebarMenuItem key={item.href} data-tour={`nav-${item.href}`}>
                       <SidebarMenuButton
                         isActive={isDashboardNavActive(
                           pathname,
@@ -191,7 +201,7 @@ export function AppShell({
 
         <SidebarFooter>
           <SidebarMenu>
-            <SidebarMenuItem>
+            <SidebarMenuItem data-tour="user-profile">
               <DropdownMenu>
                 {/* -------------------------------------------------
                     IMPORTANT:
@@ -444,7 +454,7 @@ export function AppShell({
                   HEADER ACTIONS
                   ================================================= */}
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" data-tour="theme-toggle">
                 {actions}
 
                 <ModeToggle />
@@ -471,6 +481,8 @@ export function AppShell({
           {children}
         </div>
       </SidebarInset>
+      <OnboardingTour />
+      <PerformanceHud />
     </SidebarProvider>
   );
 }

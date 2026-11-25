@@ -7,7 +7,6 @@ import {
   ArrowUpRight,
   Briefcase,
   Check,
-  Copy,
   Cpu,
   Download,
   GitPullRequest,
@@ -16,9 +15,7 @@ import {
   Lock,
   Printer,
   RefreshCw,
-  Share2,
   Sparkles,
-  Unlock,
 } from "lucide-react";
 
 import { Portfolio, TechStackCategory } from "@/lib/api";
@@ -28,12 +25,14 @@ import {
   usePortfolio,
   useUpdatePortfolioVisibility,
 } from "@/hooks/use-portfolio";
+import { useSecurityAudit } from "@/hooks/use-security-audit";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import { MermaidDiagramViewer } from "@/components/portfolio/mermaid-diagram-viewer";
+import { ShareButtons } from "@/components/ui/share-buttons";
+import { exportPortfolioHtmlReport } from "@/lib/export-portfolio-report";
 import { toast } from "@/components/ui/toast";
 
 export function PortfolioShowcase({
@@ -45,11 +44,11 @@ export function PortfolioShowcase({
   isPublicView?: boolean;
   initialPortfolio?: Portfolio;
 }) {
-  const [copied, setCopied] = useState(false);
   const [prResultUrl, setPrResultUrl] = useState<string | null>(null);
 
   // If this is the dashboard view for an owned repo:
   const portfolioQuery = usePortfolio(repoId ?? "", !isPublicView && !!repoId);
+  const auditQuery = useSecurityAudit(repoId ?? "", !isPublicView && !!repoId);
   const generateMutation = useGeneratePortfolio(repoId ?? "");
   const visibilityMutation = useUpdatePortfolioVisibility(repoId ?? "");
   const exportPrMutation = useExportArchitecturePr(repoId ?? "");
@@ -58,19 +57,6 @@ export function PortfolioShowcase({
   const isLoading = !isPublicView && portfolioQuery.isLoading;
   const isGenerating = generateMutation.isPending;
   const isExportingPr = exportPrMutation.isPending;
-
-  const handleCopyLink = () => {
-    if (!portfolio) return;
-    const url = `${window.location.origin}/portfolio/${portfolio.id}`;
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    toast.add({
-      title: "Showcase link copied",
-      description: "Public portfolio URL copied to clipboard.",
-      type: "success",
-    });
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleExportPr = async () => {
     if (!repoId) return;
@@ -313,24 +299,37 @@ ${featuresMarkdown}
             Export Markdown
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-xs"
+            onClick={() => {
+              exportPortfolioHtmlReport(
+                portfolio,
+                techCategories,
+                keyFeaturesList,
+                auditQuery.data
+              );
+              toast.add({
+                title: "HTML report exported",
+                description: "Standalone engineering report downloaded.",
+                type: "success",
+              });
+            }}
+          >
+            <Download className="size-3.5" />
+            Export HTML Report
+          </Button>
+
           {portfolio.isPublic && (
-            <Button
-              size="sm"
-              className="gap-2 text-xs"
-              onClick={handleCopyLink}
-            >
-              {copied ? (
-                <>
-                  <Check className="size-3.5" />
-                  Link Copied!
-                </>
-              ) : (
-                <>
-                  <Share2 className="size-3.5" />
-                  Share Showcase
-                </>
-              )}
-            </Button>
+            <ShareButtons
+              title={portfolio.title}
+              url={
+                typeof window !== "undefined"
+                  ? `${window.location.origin}/portfolio/${portfolio.id}`
+                  : undefined
+              }
+            />
           )}
         </div>
       </div>

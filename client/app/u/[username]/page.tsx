@@ -21,6 +21,7 @@ import { TechStackCategory } from "@/lib/api";
 import { usePublicProfile } from "@/hooks/use-portfolio";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import { ModeToggle } from "@/components/ui/mode-toggle";
+import { ShareButtons } from "@/components/ui/share-buttons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -155,23 +156,27 @@ export default function PublicDeveloperProfilePage({
 
                 {/* Quick Share & Stats */}
                 <div className="flex flex-col items-start gap-3 md:items-end">
-                  <Button
-                    size="sm"
-                    className="gap-2"
-                    onClick={handleCopyProfileUrl}
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="size-4" />
-                        Profile URL Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="size-4" />
-                        Copy Profile URL
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      onClick={handleCopyProfileUrl}
+                      aria-label="Copy developer profile URL"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="size-4" aria-hidden="true" />
+                          Profile URL Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="size-4" aria-hidden="true" />
+                          Copy Profile URL
+                        </>
+                      )}
+                    </Button>
+                    <ShareButtons title={`${profile.displayName}'s BuildFolio`} />
+                  </div>
 
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="gap-1.5 px-3 py-1">

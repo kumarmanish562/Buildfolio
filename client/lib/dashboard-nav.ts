@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Columns3,
   FolderGit2,
   LayoutGrid,
@@ -37,6 +38,11 @@ export const dashboardNavGroups: DashboardNavGroup[] = [
         title: "Compare Matrix",
         href: "/dashboard/compare",
         icon: Columns3,
+      },
+      {
+        title: "Analytics",
+        href: "/dashboard/analytics",
+        icon: BarChart3,
       },
     ],
   },

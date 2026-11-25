@@ -3,6 +3,8 @@
 import {
   CheckCircle2,
   CircleAlert,
+  Compass,
+  Gauge,
   LogOut,
   Moon,
   Server,
@@ -15,6 +17,13 @@ import { useTheme } from "next-themes";
 import { GitHubIcon } from "@/components/icons/github-icon";
 
 import { ModeToggle } from "@/components/ui/mode-toggle";
+import { ThemeMarketplace } from "@/components/ui/theme-marketplace";
+import { triggerOnboardingTour } from "@/components/onboarding/onboarding-tour";
+import {
+  isPerformanceHudEnabled,
+  setPerformanceHudEnabled,
+} from "@/components/ui/performance-hud";
+import * as React from "react";
 import {
   Avatar,
   AvatarFallback,
@@ -46,6 +55,9 @@ export function SettingsDashboard() {
   const health = useBackendHealth();
 
   const isDark = resolvedTheme === "dark";
+  const [perfHud, setPerfHud] = React.useState<boolean>(() =>
+    typeof window !== "undefined" ? isPerformanceHudEnabled() : true
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 md:p-6">
@@ -225,6 +237,55 @@ export function SettingsDashboard() {
 
             <ModeToggle />
 
+          </div>
+
+          <Separator />
+
+          <ThemeMarketplace />
+
+          <Separator />
+
+          {/* Performance HUD */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="perf-hud-toggle" className="flex items-center gap-1.5">
+                <Gauge className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                Performance HUD
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Show live DOM load time and API latency badge.
+              </p>
+            </div>
+            <Switch
+              id="perf-hud-toggle"
+              checked={perfHud}
+              onCheckedChange={(checked) => {
+                setPerfHud(checked);
+                setPerformanceHudEnabled(checked);
+              }}
+            />
+          </div>
+
+          <Separator />
+
+          {/* Onboarding Tour */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <Label className="flex items-center gap-1.5">
+                <Compass className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                Guided Onboarding Tour
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Replay the interactive walkthrough of BuildFolio features.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={triggerOnboardingTour}
+            >
+              Replay Tour
+            </Button>
           </div>
 
         </CardContent>

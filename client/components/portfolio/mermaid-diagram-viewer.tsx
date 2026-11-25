@@ -5,10 +5,12 @@ import mermaid from "mermaid";
 import { useTheme } from "next-themes";
 import {
   Check,
+  Code2,
   Copy,
   Download,
   Image as ImageIcon,
   Maximize2,
+  RotateCcw,
   X,
   ZoomIn,
   ZoomOut,
@@ -22,16 +24,32 @@ export function MermaidDiagramViewer({
   chart: string;
   title?: string;
 }) {
-  const { resolvedTheme } = useTheme();
-  const mermaidTheme = resolvedTheme === "dark" ? "dark" : "default";
+  const { theme, resolvedTheme } = useTheme();
+  const isDarkPalette =
+    resolvedTheme === "dark" ||
+    theme === "midnight" ||
+    theme === "emerald" ||
+    theme === "sunset";
+  const mermaidTheme = isDarkPalette ? "dark" : "default";
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState<string>("");
   const [zoom, setZoom] = useState<number>(1);
   const [modalZoom, setModalZoom] = useState<number>(1.15);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftOverride, setDraftOverride] = useState<string | null>(null);
+  const draftChart = draftOverride ?? chart;
+  const [debouncedChart, setDebouncedChart] = useState<string>(chart);
   const [copiedSource, setCopiedSource] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedChart(draftChart);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [draftChart]);
 
   useEffect(() => {
     mermaid.initialize({
@@ -44,10 +62,10 @@ export function MermaidDiagramViewer({
     let cancelled = false;
 
     const renderChart = async () => {
-      if (!chart || chart.trim() === "") return;
+      if (!debouncedChart || debouncedChart.trim() === "") return;
       try {
         const id = "mermaid-svg-" + Math.random().toString(36).substring(2, 9);
-        const { svg } = await mermaid.render(id, chart);
+        const { svg } = await mermaid.render(id, debouncedChart);
         if (!cancelled) {
           setSvgContent(svg);
           setError(null);
@@ -56,7 +74,7 @@ export function MermaidDiagramViewer({
         console.warn("Failed to render Mermaid SVG", err);
         if (!cancelled) {
           setError(
-            "Unable to render architecture diagram visually. Showing raw format below."
+            "Unable to render architecture diagram visually. Check Mermaid syntax or view raw source."
           );
         }
       }
@@ -67,7 +85,7 @@ export function MermaidDiagramViewer({
     return () => {
       cancelled = true;
     };
-  }, [chart, mermaidTheme]);
+  }, [debouncedChart, mermaidTheme]);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -83,7 +101,7 @@ export function MermaidDiagramViewer({
   const slug = title.toLowerCase().replace(/\s+/g, "-");
 
   const handleCopySource = () => {
-    navigator.clipboard.writeText(chart);
+    navigator.clipboard.writeText(draftChart);
     setCopiedSource(true);
     setTimeout(() => setCopiedSource(false), 2000);
   };
@@ -179,10 +197,11 @@ export function MermaidDiagramViewer({
                 className="size-8 p-0"
                 onClick={() => setZoom((z) => Math.max(0.6, z - 0.15))}
                 title="Zoom Out"
+                aria-label="Zoom out diagram"
               >
-                <ZoomOut className="size-4" />
+                <ZoomOut className="size-4" aria-hidden="true" />
               </Button>
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="font-mono text-xs text-muted-foreground" aria-live="polite">
                 {Math.round(zoom * 100)}%
               </span>
               <Button
@@ -191,8 +210,9 @@ export function MermaidDiagramViewer({
                 className="size-8 p-0"
                 onClick={() => setZoom((z) => Math.min(2.0, z + 0.15))}
                 title="Zoom In"
+                aria-label="Zoom in diagram"
               >
-                <ZoomIn className="size-4" />
+                <ZoomIn className="size-4" aria-hidden="true" />
               </Button>
               <Button
                 variant="ghost"
@@ -200,16 +220,29 @@ export function MermaidDiagramViewer({
                 className="size-8 p-0"
                 onClick={() => setIsFullscreen(true)}
                 title="Fullscreen View"
+                aria-label="Open diagram in fullscreen"
               >
-                <Maximize2 className="size-4" />
+                <Maximize2 className="size-4" aria-hidden="true" />
               </Button>
             </>
           )}
 
           <Button
-            variant="outline"
+            variant={isEditing ? "default" : "outline"}
             size="sm"
             className="gap-1.5 text-xs ml-1"
+            onClick={() => setIsEditing((v) => !v)}
+            aria-pressed={isEditing}
+            aria-label="Toggle live Mermaid editor"
+          >
+            <Code2 className="size-3.5" aria-hidden="true" />
+            {isEditing ? "Close Editor" : "Live Editor"}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
             onClick={handleCopySource}
           >
             {copiedSource ? (
@@ -250,7 +283,51 @@ export function MermaidDiagramViewer({
         </div>
       </div>
 
-      {!error && svgContent ? (
+      {isEditing ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="flex flex-col gap-2 rounded-2xl border bg-muted/40 p-3">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-xs font-medium text-muted-foreground">
+                Mermaid Source (Live Preview)
+              </span>
+              {draftChart !== chart && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-xs"
+                  onClick={() => setDraftOverride(null)}
+                  aria-label="Reset diagram to original source"
+                >
+                  <RotateCcw className="size-3" aria-hidden="true" />
+                  Reset
+                </Button>
+              )}
+            </div>
+            <textarea
+              value={draftChart}
+              onChange={(e) => setDraftOverride(e.target.value)}
+              spellCheck={false}
+              aria-label="Mermaid diagram source editor"
+              className="min-h-[280px] w-full flex-1 resize-y rounded-xl border bg-background p-3 font-mono text-xs leading-5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+
+          <div className="overflow-auto rounded-2xl border bg-card/60 p-6 shadow-inner backdrop-blur-sm">
+            {!error && svgContent ? (
+              <div
+                ref={containerRef}
+                style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
+                className="transition-transform duration-150 flex justify-center min-w-fit"
+                dangerouslySetInnerHTML={{ __html: svgContent }}
+              />
+            ) : (
+              <p className="text-xs text-destructive">
+                {error ?? "Waiting for valid Mermaid syntax..."}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : !error && svgContent ? (
         <div className="overflow-auto rounded-2xl border bg-card/60 p-6 shadow-inner backdrop-blur-sm">
           <div
             ref={containerRef}
@@ -261,7 +338,7 @@ export function MermaidDiagramViewer({
         </div>
       ) : (
         <pre className="overflow-x-auto rounded-xl bg-muted/70 p-4 font-mono text-xs leading-5 text-foreground">
-          <code>{chart}</code>
+          <code>{draftChart}</code>
         </pre>
       )}
 

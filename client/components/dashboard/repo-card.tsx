@@ -72,12 +72,12 @@ export function RepoCard({
   return (
     <article
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border bg-card",
+        "group relative flex flex-col overflow-hidden rounded-2xl border bg-gradient-to-b from-card to-muted/20 dark:from-card dark:to-card/80",
         "transition-all duration-200",
-        "hover:-translate-y-0.5 hover:shadow-xl hover:shadow-foreground/6",
+        "hover:-translate-y-0.5 hover:shadow-xl hover:shadow-foreground/6 hover:border-primary/40",
         isFailed
           ? "border-destructive/30"
-          : "border-border/70 hover:border-primary/30"
+          : "border-border/70"
       )}
     >
       {/* Accent line */}
@@ -99,7 +99,8 @@ export function RepoCard({
         <button
           type="button"
           onClick={openRepository}
-          className="flex min-w-0 items-start gap-3 text-left"
+          className="flex min-w-0 items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
+          aria-label={`View details for repository ${repo.fullName}`}
         >
           <LanguageBadge
             language={repo.language}
@@ -212,6 +213,7 @@ export function RepoCard({
           <Button
             variant="ghost"
             size="sm"
+            aria-label={`Open ${repo.fullName} on GitHub`}
             render={
               <a
                 href={repo.htmlUrl}
@@ -220,7 +222,7 @@ export function RepoCard({
               />
             }
           >
-            <ExternalLink data-icon="inline-start" />
+            <ExternalLink data-icon="inline-start" aria-hidden="true" />
             GitHub
           </Button>
         ) : (
@@ -228,6 +230,7 @@ export function RepoCard({
             variant="ghost"
             size="sm"
             onClick={openRepository}
+            aria-label={`View details for ${repo.name}`}
           >
             Details
           </Button>
@@ -239,8 +242,9 @@ export function RepoCard({
               variant="secondary"
               size="sm"
               onClick={openChat}
+              aria-label={`Open chat for ${repo.name}`}
             >
-              <MessageSquare data-icon="inline-start" />
+              <MessageSquare data-icon="inline-start" aria-hidden="true" />
               Chat
             </Button>
           )}
@@ -254,6 +258,15 @@ export function RepoCard({
             }
             disabled={isIndexing}
             onClick={handlePrimary}
+            aria-label={
+              isIndexing
+                ? `Indexing ${repo.name}`
+                : repo.indexStatus === "READY"
+                  ? `Open ${repo.name}`
+                  : isFailed
+                    ? `Retry indexing ${repo.name}`
+                    : `Index ${repo.name}`
+            }
           >
             {isIndexing ? (
               <>
