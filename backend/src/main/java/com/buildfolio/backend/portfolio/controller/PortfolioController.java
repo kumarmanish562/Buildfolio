@@ -121,4 +121,15 @@ public class PortfolioController {
     public MicroserviceTopologyResponse getMicroserviceTopology(@PathVariable String username) {
         return portfolioService.getMicroserviceTopology(username);
     }
+
+    @GetMapping("/api/public/portfolios/{id}/anti-patterns")
+    public AntiPatternAuditResponse getPublicAntiPatterns(@PathVariable UUID id) {
+        return portfolioService.auditAntiPatterns(id);
+    }
+
+    @GetMapping("/api/repos/{id}/anti-patterns")
+    public AntiPatternAuditResponse getRepoAntiPatterns(@PathVariable UUID id) {
+        UUID userId = currentUser.require().getId();
+        return portfolioService.auditAntiPatternsForRepo(id, userId);
+    }
 }

@@ -37,6 +37,7 @@ import { WhatIfSimulatorDialog } from "@/components/portfolio/what-if-simulator-
 import { DependencyGraphViewer } from "@/components/portfolio/dependency-graph-viewer";
 import { ApiExplorerViewer } from "@/components/portfolio/api-explorer-viewer";
 import { GitHubActionDialog } from "@/components/portfolio/github-action-dialog";
+import { AntiPatternAuditor } from "@/components/portfolio/anti-pattern-auditor";
 import { ShareButtons } from "@/components/ui/share-buttons";
 import { exportPortfolioHtmlReport } from "@/lib/export-portfolio-report";
 import { toast } from "@/components/ui/toast";
@@ -51,7 +52,7 @@ export function PortfolioShowcase({
   initialPortfolio?: Portfolio;
 }) {
   const [prResultUrl, setPrResultUrl] = useState<string | null>(null);
-  const [architectureView, setArchitectureView] = useState<"flow" | "graph" | "api">("flow");
+  const [architectureView, setArchitectureView] = useState<"flow" | "graph" | "api" | "debt">("flow");
 
   // If this is the dashboard view for an owned repo:
   const portfolioQuery = usePortfolio(repoId ?? "", !isPublicView && !!repoId);
@@ -506,6 +507,17 @@ ${featuresMarkdown}
             >
               API Explorer & Playground
             </button>
+            <button
+              type="button"
+              onClick={() => setArchitectureView("debt")}
+              className={`rounded-lg px-3 py-1 font-medium transition-colors ${
+                architectureView === "debt"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Tech Debt & Anti-Patterns
+            </button>
           </div>
         </div>
 
@@ -528,8 +540,14 @@ ${featuresMarkdown}
                 portfolioId={portfolio.id}
                 isPublicView={isPublicView}
               />
-            ) : (
+            ) : architectureView === "api" ? (
               <ApiExplorerViewer portfolioId={portfolio.id} />
+            ) : (
+              <AntiPatternAuditor
+                portfolioId={portfolio.id}
+                repoId={portfolio.repositoryId}
+                isPublicView={isPublicView}
+              />
             )}
           </div>
         </div>

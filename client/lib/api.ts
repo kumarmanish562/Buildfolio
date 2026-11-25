@@ -395,6 +395,35 @@ export const api = {
 
   getMicroserviceTopology: (username: string) =>
     apiFetch<MicroserviceTopologyResponse>(`/api/public/profiles/${username}/topology`),
+
+  getAntiPatterns: (repoId: string) =>
+    apiFetch<AntiPatternAuditResponse>(`/api/repos/${repoId}/anti-patterns`),
+
+  getPublicAntiPatterns: (portfolioId: string) =>
+    apiFetch<AntiPatternAuditResponse>(
+      `/api/public/portfolios/${portfolioId}/anti-patterns`
+    ),
+};
+
+export type AntiPatternItem = {
+  id: string;
+  ruleName: string;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | string;
+  category: "LAYER_LEAKAGE" | "DATA_COUPLING" | "PERFORMANCE_SMELL" | "EXCEPTION_HYGIENE" | "GOD_CLASS" | string;
+  componentPath: string;
+  description: string;
+  impactExplanation: string;
+  remediationSnippet: string;
+};
+
+export type AntiPatternAuditResponse = {
+  repositoryName: string;
+  debtRating: string;
+  healthScore: number;
+  estimatedRefactorHours: number;
+  totalViolations: number;
+  executiveSummary: string;
+  violations: AntiPatternItem[];
 };
 
 export type ApiEndpointItem = {
