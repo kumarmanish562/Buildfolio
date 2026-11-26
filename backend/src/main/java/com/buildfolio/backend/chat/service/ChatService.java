@@ -116,7 +116,7 @@ public class ChatService {
         String systemPrompt = chatPromptBuilder.systemPrompt(repo.getFullName());
         String userPrompt = chatPromptBuilder.userPrompt(retrievedContext.contextText(), history, userContent);
 
-        // 5. Stream OpenAI response to the client (SSE)
+        // 5. Stream Ollama / LLM response to the client (SSE)
         return chatStreamHandler.stream(
                 session.getId(),
                 toMessageResponse(userMessage),

@@ -568,7 +568,7 @@ public class PortfolioService {
         boolean hasTypeScript = detectedLanguages.contains("typescript") || detectedLanguages.contains("javascript") || techStackSet.stream().anyMatch(t -> t.contains("react") || t.contains("next.js"));
         boolean hasSecurity = techStackSet.stream().anyMatch(t -> t.contains("security") || t.contains("jwt") || t.contains("oauth"));
         boolean hasDatabase = techStackSet.stream().anyMatch(t -> t.contains("postgres") || t.contains("sql") || t.contains("hibernate") || t.contains("jpa"));
-        boolean hasAI = techStackSet.stream().anyMatch(t -> t.contains("ai") || t.contains("rag") || t.contains("vector") || t.contains("openai"));
+        boolean hasAI = techStackSet.stream().anyMatch(t -> t.contains("ai") || t.contains("rag") || t.contains("vector") || t.contains("openai") || t.contains("ollama"));
 
         if (hasJava) {
             verifiedSkills.add(new SkillPassportResponse.VerifiedSkillDto(

@@ -531,9 +531,9 @@ Database
 
 AI
 
-    OpenAI
+    Ollama (Local LLM & Embeddings)
 
-    OpenAI Embeddings
+    Spring AI
 
     Retrieval-Augmented Generation
 
@@ -684,7 +684,13 @@ $env:GITHUB_CLIENT_ID="your-github-client-id"
 
 $env:GITHUB_CLIENT_SECRET="your-github-client-secret"
 
-$env:OPENAI_API_KEY="your-openai-api-key"
+# Ollama Local LLM (no API key required)
+$env:OLLAMA_BASE_URL="http://localhost:11434"
+$env:OLLAMA_MODEL="llama3"
+$env:OLLAMA_EMBEDDING_MODEL="nomic-embed-text"
+
+# Optional: OpenAI (if preferred, see backend/pom.xml)
+# $env:OPENAI_API_KEY="your-openai-api-key"
 
 $env:TOKEN_ENCRYPTOR_PASSWORD="your-strong-encryption-password"
 
@@ -763,9 +769,12 @@ PowerShell:
 $env:DB_PASSWORD="your-postgres-password"
 $env:GITHUB_CLIENT_ID="your-github-client-id"
 $env:GITHUB_CLIENT_SECRET="your-github-client-secret"
-$env:OPENAI_API_KEY="your-openai-api-key"
+$env:OLLAMA_BASE_URL="http://localhost:11434"
+$env:OLLAMA_MODEL="llama3"
+$env:OLLAMA_EMBEDDING_MODEL="nomic-embed-text"
+# Optional OpenAI: $env:OPENAI_API_KEY="your-openai-api-key"
 $env:TOKEN_ENCRYPTOR_PASSWORD="your-encryption-password"
-$env:TOKEN_ENCRYPTOR_SALT="your-encryption-salt"
+$env:TOKEN_ENCRYPTOR_SALT="7a9e3b4c1d2e5f80"
 
 4. Start the Backend
 

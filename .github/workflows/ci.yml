@@ -52,7 +52,8 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/buildfolio
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: postgres
-          SPRING_AI_OPENAI_API_KEY: sk-test-ci-key
+          SPRING_AI_OLLAMA_BASE_URL: http://localhost:11434
+          # SPRING_AI_OPENAI_API_KEY: sk-test-ci-key
           GITHUB_CLIENT_ID: ci-test-client-id
           GITHUB_CLIENT_SECRET: ci-test-client-secret
           APP_FRONTEND_URL: http://localhost:3000
